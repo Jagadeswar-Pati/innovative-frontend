@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -52,8 +52,15 @@ const loadGoogleScript = () => {
   return googleScriptPromise;
 };
 
+const getRedirectPath = (searchParams: URLSearchParams): string => {
+  const r = searchParams.get('redirect');
+  if (!r || !r.startsWith('/') || r.startsWith('//')) return '/account';
+  return r;
+};
+
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login, register, googleLogin, isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   
@@ -69,12 +76,12 @@ const LoginPage: React.FC = () => {
     password: '',
   });
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated (back to the page they came from)
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
-      navigate('/account');
+      navigate(getRedirectPath(searchParams));
     }
-  }, [isAuthenticated, authLoading, navigate]);
+  }, [isAuthenticated, authLoading, navigate, searchParams]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -88,7 +95,7 @@ const LoginPage: React.FC = () => {
       if (isLogin) {
         await login(formData.email, formData.password);
         toast({ title: 'Welcome back!', description: 'You have logged in successfully.' });
-        navigate('/account');
+        navigate(getRedirectPath(searchParams));
       } else {
         await register(formData.email, formData.password, formData.name);
         toast({ 
@@ -142,7 +149,7 @@ const LoginPage: React.FC = () => {
             try {
               await googleLogin(res.credential);
               toast({ title: 'Welcome!', description: 'Signed in with Google successfully.' });
-              navigate('/account');
+              navigate(getRedirectPath(searchParams));
             } catch (error) {
               toast({
                 title: 'Error',
@@ -172,7 +179,7 @@ const LoginPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [googleLogin, navigate, toast]);
+  }, [googleLogin, navigate, toast, searchParams]);
 
   if (authLoading) {
     return (

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import EShopLayout from '../components/EShopLayout';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -23,6 +23,7 @@ declare global {
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { items, totalPrice, clearCart } = useCart();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -96,7 +97,7 @@ const CheckoutPage = () => {
 
   const handlePlaceOrder = async () => {
     if (!user) {
-      navigate('/login');
+      navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`);
       return;
     }
     const address = addresses.find((a) => a._id === selectedAddress);

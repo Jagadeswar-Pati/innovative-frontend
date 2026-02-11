@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -46,6 +46,8 @@ const StarRating = ({
 
 const ProductReviews = ({ productId }: ProductReviewsProps) => {
   const { user, isAuthenticated } = useAuth();
+  const location = useLocation();
+  const loginUrl = `/login?redirect=${encodeURIComponent(location.pathname)}`;
   const [reviews, setReviews] = useState<Review[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -189,7 +191,7 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
           {!isAuthenticated ? (
             <>
               <p className="text-sm text-muted-foreground">Please login to submit a review</p>
-              <Link to="/login">
+              <Link to={loginUrl}>
                 <Button>Login</Button>
               </Link>
             </>

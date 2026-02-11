@@ -53,10 +53,10 @@ const AccountPage = () => {
     isDefault: false,
   });
 
-  // Redirect if not authenticated
+  // Redirect if not authenticated (return here after login)
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      navigate('/login');
+      navigate('/login?redirect=' + encodeURIComponent('/account'));
     }
   }, [isAuthenticated, authLoading, navigate]);
 
