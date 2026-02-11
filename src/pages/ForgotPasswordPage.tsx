@@ -34,17 +34,17 @@ const ForgotPasswordPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen min-h-[100dvh] bg-background flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
+        <div className="text-center mb-6 sm:mb-8">
           <Link to="/">
             <img src={logo} alt="Innovative Hub" className="h-16 mx-auto mb-4" />
           </Link>
-          <h1 className="text-2xl font-bold text-foreground">Forgot Password</h1>
-          <p className="text-muted-foreground mt-2">We’ll send you a reset link.</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Forgot Password</h1>
+          <p className="text-muted-foreground mt-2 text-sm sm:text-base">We’ll send you a reset link.</p>
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-6 shadow-lg">
+        <div className="bg-card border border-border rounded-xl p-4 sm:p-6 shadow-lg">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -62,13 +62,13 @@ const ForgotPasswordPage = () => {
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full min-h-[48px] touch-manipulation" disabled={isLoading}>
               {isLoading ? 'Sending...' : 'Send Reset Link'}
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-muted-foreground">
-            Remember your password? <Link to="/login" className="text-primary hover:underline">Back to login</Link>
+          <div className="mt-6 text-center text-sm text-muted-foreground py-2">
+            Remember your password? <Link to="/login" className="text-primary hover:underline touch-manipulation inline-block py-2">Back to login</Link>
           </div>
         </div>
       </div>

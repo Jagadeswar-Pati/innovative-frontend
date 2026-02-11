@@ -29,9 +29,9 @@ const EShopHeader = ({ searchQuery = '', onSearchChange }: EShopHeaderProps) => 
         <div className="container mx-auto px-4">
           {/* Top Bar */}
           <div className="flex items-center justify-between h-16 md:h-20 gap-4">
-            {/* Menu Button - Opens Category Sidebar */}
+            {/* Menu Button - Opens Category Sidebar (touch-friendly) */}
             <button
-              className="p-2 text-foreground hover:bg-secondary rounded-lg transition-colors"
+              className="p-3 -ml-2 text-foreground hover:bg-secondary active:bg-secondary/80 rounded-lg transition-colors touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center"
               onClick={() => setIsSidebarOpen(true)}
               aria-label="Open categories"
             >
@@ -73,7 +73,7 @@ const EShopHeader = ({ searchQuery = '', onSearchChange }: EShopHeaderProps) => 
                 </Button>
               </Link>
               
-              <Link to="/wishlist" className="relative p-2 text-muted-foreground hover:text-primary transition-colors">
+              <Link to="/wishlist" className="relative p-3 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-primary transition-colors touch-manipulation rounded-lg">
                 <Heart className="w-5 h-5" />
                 {wishlistItems > 0 && (
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
@@ -82,7 +82,7 @@ const EShopHeader = ({ searchQuery = '', onSearchChange }: EShopHeaderProps) => 
                 )}
               </Link>
               
-              <Link to="/cart" className="relative p-2 text-muted-foreground hover:text-primary transition-colors">
+              <Link to="/cart" className="relative p-3 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-primary transition-colors touch-manipulation rounded-lg">
                 <ShoppingCart className="w-5 h-5" />
                 {cartItems > 0 && (
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">

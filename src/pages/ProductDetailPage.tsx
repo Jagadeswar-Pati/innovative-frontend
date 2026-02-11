@@ -10,6 +10,9 @@ import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import ProductReviews from '@/components/ProductReviews';
+import { formatPrice } from '@/utils/price';
+import { isCustom3dProduct, CONTACT_US_3D_SKU } from '@/utils/productHelpers';
 
 const ProductDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -23,7 +26,7 @@ const ProductDetailPage = () => {
   const [quantity, setQuantity] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [isImagePaused, setIsImagePaused] = useState(false);
-  
+  const [isAddingContactUs, setIsAddingContactUs] = useState(false);
   const { addToCart, isInCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const { toast } = useToast();
@@ -31,6 +34,7 @@ const ProductDetailPage = () => {
   useEffect(() => {
     const loadProduct = async () => {
       if (!id) return;
+      window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
       setIsLoading(true);
       try {
         const res = await productsApi.getById(id);
@@ -109,6 +113,7 @@ const ProductDetailPage = () => {
     if (product.stock <= 10) return { label: `Limited stock (${product.stock})`, color: 'bg-yellow-500' };
     return { label: `In stock (${product.stock})`, color: 'bg-green-500' };
   })();
+  const isCustom3d = isCustom3dProduct(product);
 
   const shortDescParts = (() => {
     const cleaned = product.shortDescription.replace(/^Applications:\s*/i, '').trim();
@@ -188,6 +193,23 @@ const ProductDetailPage = () => {
     navigate('/checkout');
   };
 
+  const handleContactUs3d = async () => {
+    setIsAddingContactUs(true);
+    try {
+      const res = await productsApi.getById(CONTACT_US_3D_SKU);
+      if (res.success && res.data) {
+        sessionStorage.setItem('buyNowItem', JSON.stringify({ product: res.data, quantity: 1 }));
+        navigate('/checkout');
+      } else {
+        toast({ title: 'Error', description: 'Could not open checkout. Try again.', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Could not open checkout. Try again.', variant: 'destructive' });
+    } finally {
+      setIsAddingContactUs(false);
+    }
+  };
+
   const handleWishlistToggle = () => {
     if (inWishlist) {
       removeFromWishlist(product._id);
@@ -198,9 +220,9 @@ const ProductDetailPage = () => {
 
   return (
     <EShopLayout searchQuery={searchQuery} onSearchChange={handleSearchChange}>
-      <div className="container mx-auto px-4 pb-12">
+      <div className="container mx-auto px-3 sm:px-4 pb-8 sm:pb-12 max-w-full">
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mb-6 overflow-x-auto whitespace-nowrap">
+        <nav className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6 overflow-x-auto whitespace-nowrap">
           <Link to="/" className="hover:text-foreground">Home</Link>
           <span>/</span>
           <Link to="/eshop" className="hover:text-foreground">E-Shop</Link>
@@ -213,8 +235,8 @@ const ProductDetailPage = () => {
         </nav>
 
         {/* Product Section */}
-        <div className="bg-secondary/20 rounded-2xl p-4 md:p-8 mb-12">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-secondary/20 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 lg:p-8 mb-8 sm:mb-12 max-w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
             {/* Image Gallery */}
             <div className="relative">
               <div
@@ -268,15 +290,15 @@ const ProductDetailPage = () => {
             </div>
 
             {/* Product Info */}
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground break-words">
                   {product.name}
                 </h1>
                 <Button
                   variant="outline"
                   size="icon"
-                  className="shrink-0"
+                  className="shrink-0 min-h-[44px] min-w-[44px] touch-manipulation"
                   onClick={async () => {
                     const url = window.location.href;
                     try {
@@ -308,17 +330,15 @@ const ProductDetailPage = () => {
               {/* Price */}
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-3xl font-bold text-foreground">₹{product.price}</span>
+                  <span className="text-2xl sm:text-3xl font-bold text-foreground">₹{formatPrice(product.price)}</span>
                   {product.mrp > product.price && (
                     <>
-                      <span className="text-xl text-muted-foreground line-through">₹{product.mrp}</span>
+                      <span className="text-xl text-muted-foreground line-through">₹{formatPrice(product.mrp)}</span>
                       <span className="text-lg text-green-500 font-medium">{discount}% off</span>
                     </>
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {product.gstMode === 'excluding' ? '(excl. GST)' : '(incl. GST)'}
-                </p>
+                <p className="text-sm text-muted-foreground">Price (Excluding GST)</p>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span className={`inline-block w-2 h-2 rounded-full ${stockStatus.color}`} />
                   <span>{stockStatus.label}</span>
@@ -329,18 +349,20 @@ const ProductDetailPage = () => {
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center border border-border rounded-lg">
                   <button
+                    type="button"
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="p-3 hover:bg-secondary transition-colors"
+                    className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-secondary active:bg-secondary/80 transition-colors touch-manipulation rounded-l-lg"
                   >
                     <Minus className="w-4 h-4" />
                   </button>
-                  <span className="px-4 text-lg font-medium">{quantity}</span>
+                  <span className="px-3 sm:px-4 text-base sm:text-lg font-medium min-w-[2.5rem] text-center">{quantity}</span>
                   <button
+                    type="button"
                     onClick={() => {
                       const maxQty = product.stock > 0 ? product.stock : quantity + 1;
                       setQuantity(Math.min(maxQty, quantity + 1));
                     }}
-                    className="p-3 hover:bg-secondary transition-colors"
+                    className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-secondary active:bg-secondary/80 transition-colors touch-manipulation rounded-r-lg"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -348,28 +370,41 @@ const ProductDetailPage = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Button 
-                  size="lg" 
-                  className="flex-1 gap-2"
-                  onClick={handleAddToCart}
-                  variant={inCart ? 'secondary' : 'default'}
-                >
-                  <ShoppingCart className="w-5 h-5" />
-                  {inCart ? 'Added to Cart' : 'Add to Cart'}
-                </Button>
-                <Button size="lg" className="flex-1" onClick={handleBuyNow}>
-                  Buy Now
-                </Button>
-              </div>
+              {isCustom3d ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Pay for order to open Contact Us — then we&apos;ll share instructions and contact number.
+                  </p>
+                  <Button size="lg" className="w-full min-h-[48px] touch-manipulation" onClick={handleContactUs3d} disabled={isAddingContactUs}>
+                    {isAddingContactUs ? 'Opening checkout…' : 'Pay for order — Contact us for Custom 3D Printing'}
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button 
+                    type="button"
+                    size="lg" 
+                    className="flex-1 gap-2 min-h-[48px] touch-manipulation w-full"
+                    onClick={handleAddToCart}
+                    variant={inCart ? 'secondary' : 'default'}
+                  >
+                    <ShoppingCart className="w-5 h-5 shrink-0" />
+                    {inCart ? 'Added to Cart' : 'Add to Cart'}
+                  </Button>
+                  <Button type="button" size="lg" className="flex-1 min-h-[48px] touch-manipulation w-full" onClick={handleBuyNow}>
+                    Buy Now
+                  </Button>
+                </div>
+              )}
 
               {/* Secondary Actions */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
                 <button
+                  type="button"
                   onClick={handleWishlistToggle}
-                  className={`flex items-center gap-2 text-sm ${inWishlist ? 'text-destructive' : 'text-muted-foreground hover:text-foreground'}`}
+                  className={`flex items-center gap-2 text-sm min-h-[44px] touch-manipulation py-2 ${inWishlist ? 'text-destructive' : 'text-muted-foreground hover:text-foreground'}`}
                 >
-                  <Heart className={`w-4 h-4 ${inWishlist ? 'fill-current' : ''}`} />
+                  <Heart className={`w-4 h-4 shrink-0 ${inWishlist ? 'fill-current' : ''}`} />
                   {inWishlist ? 'Wishlisted' : 'Add to wishlist'}
                 </button>
                 <span className="text-sm text-muted-foreground">
@@ -416,6 +451,9 @@ const ProductDetailPage = () => {
             </div>
           </section>
         )}
+
+        {/* Reviews & Comments */}
+        <ProductReviews productId={product._id} />
 
         {/* Datasheet */}
         {product.datasheet && (

@@ -1,32 +1,117 @@
+import { useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { MapPin, Phone, Mail, Clock } from 'lucide-react';
+import { useState } from 'react';
+
+const CONTACT_NUMBER = '7008999645';
 
 const ContactPage = () => {
+  const [searchParams] = useSearchParams();
+  const fromOrder = searchParams.get('fromOrder') === '1';
+  const [files, setFiles] = useState<File[]>([]);
+  const [progress, setProgress] = useState<Record<string, number>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', subject: '', message: '' });
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const formatFileSize = (size: number) => {
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const handleFilesChange = (selected: FileList | null) => {
+    if (!selected) return;
+    const list = Array.from(selected);
+    setFiles(list);
+    const initial: Record<string, number> = {};
+    list.forEach((file) => {
+      initial[file.name] = 0;
+    });
+    setProgress(initial);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Form submission will be handled when backend is integrated
+    setErrorMessage('');
+    const fullName = `${form.firstName} ${form.lastName}`.trim();
+    if (!fullName || !form.email.trim() || !form.message.trim()) {
+      setErrorMessage('Name, email, and message are required.');
+      return;
+    }
+    setIsSubmitting(true);
+    setSuccessMessage('');
+    const timers: number[] = [];
+    files.forEach((file) => {
+      let current = 0;
+      const timer = window.setInterval(() => {
+        current = Math.min(100, current + 10);
+        setProgress((prev) => ({ ...prev, [file.name]: current }));
+        if (current >= 100) {
+          window.clearInterval(timer);
+        }
+      }, 120);
+      timers.push(timer);
+    });
+    const submit = async () => {
+      try {
+        const payload = new FormData();
+        payload.append('name', fullName);
+        payload.append('email', form.email.trim());
+        if (form.subject.trim()) payload.append('subject', form.subject.trim());
+        payload.append('message', form.message.trim());
+        files.forEach((file) => payload.append('files', file));
+        const res = await fetch('/api/contact', { method: 'POST', body: payload });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.message || 'Failed to send message');
+        }
+        setSuccessMessage('Your message and files have been sent successfully');
+        setForm({ firstName: '', lastName: '', email: '', subject: '', message: '' });
+        setFiles([]);
+        setProgress({});
+      } catch (err) {
+        setErrorMessage((err as Error).message || 'Failed to send message');
+      } finally {
+        timers.forEach((t) => window.clearInterval(t));
+        setIsSubmitting(false);
+      }
+    };
+    submit();
   };
 
   return (
     <Layout>
-      <div className="network-bg py-16 md:py-24">
-        <div className="container mx-auto px-4">
-          <div className="max-w-3xl mx-auto text-center mb-12">
-            <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-6">
+      <div className="network-bg py-10 sm:py-16 md:py-24">
+        <div className="container mx-auto px-3 sm:px-4 max-w-full">
+          <div className="max-w-3xl mx-auto text-center mb-8 sm:mb-12">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 sm:mb-6">
               Contact Us
             </h1>
             <p className="text-lg text-muted-foreground">
               Have questions or need assistance? We'd love to hear from you.
             </p>
+            {fromOrder && (
+              <div className="mt-6 p-4 rounded-xl bg-primary/10 border border-primary/20 text-left max-w-2xl mx-auto">
+                <p className="font-semibold text-foreground mb-2">You’ve paid for the order — Contact Us is now open.</p>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Use the form below to send your 3D printing inquiry, or contact us directly on the number given below for faster assistance.
+                </p>
+                <p className="text-sm font-medium text-foreground">
+                  You can also contact us on: <a href={`tel:${CONTACT_NUMBER}`} className="text-primary hover:underline">{CONTACT_NUMBER}</a>
+                </p>
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 max-w-5xl mx-auto">
             {/* Contact Form */}
-            <div className="bg-card/60 backdrop-blur-sm border border-border rounded-xl p-6 md:p-8">
+            <div className="bg-card/60 backdrop-blur-sm border border-border rounded-xl p-4 sm:p-6 md:p-8">
               <h2 className="text-xl font-semibold text-foreground mb-6">
                 Send us a Message
               </h2>
@@ -37,6 +122,9 @@ const ContactPage = () => {
                     <Input 
                       id="firstName" 
                       placeholder="John" 
+                      value={form.firstName}
+                      onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+                      required
                       className="bg-background/50"
                     />
                   </div>
@@ -45,6 +133,9 @@ const ContactPage = () => {
                     <Input 
                       id="lastName" 
                       placeholder="Doe" 
+                      value={form.lastName}
+                      onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+                      required
                       className="bg-background/50"
                     />
                   </div>
@@ -55,6 +146,9 @@ const ContactPage = () => {
                     id="email" 
                     type="email" 
                     placeholder="john@example.com" 
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    required
                     className="bg-background/50"
                   />
                 </div>
@@ -63,6 +157,8 @@ const ContactPage = () => {
                   <Input 
                     id="subject" 
                     placeholder="How can we help?" 
+                    value={form.subject}
+                    onChange={(e) => setForm({ ...form, subject: e.target.value })}
                     className="bg-background/50"
                   />
                 </div>
@@ -72,11 +168,53 @@ const ContactPage = () => {
                     id="message" 
                     placeholder="Tell us more about your inquiry..." 
                     rows={5}
+                    value={form.message}
+                    onChange={(e) => setForm({ ...form, message: e.target.value })}
+                    required
                     className="bg-background/50"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="attachments">Attachments</Label>
+                  <Input
+                    id="attachments"
+                    type="file"
+                    multiple
+                    accept=".pdf,.png,.jpg,.jpeg,.webp,.stl,.obj,.step,.stp,.iges,.igs"
+                    onChange={(e) => handleFilesChange(e.target.files)}
+                    className="bg-background/50"
+                  />
+                  {files.length > 0 && (
+                    <div className="space-y-2">
+                      {files.map((file) => (
+                        <div key={file.name} className="p-3 bg-muted/30 rounded-lg">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-foreground">{file.name}</span>
+                            <span className="text-muted-foreground">{formatFileSize(file.size)}</span>
+                          </div>
+                          <div className="mt-2 h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-primary"
+                              style={{ width: `${progress[file.name] || 0}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {successMessage && (
+                  <div className="text-sm text-success bg-success/10 border border-success/20 rounded-lg p-3">
+                    {successMessage}
+                  </div>
+                )}
+                {errorMessage && (
+                  <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                    {errorMessage}
+                  </div>
+                )}
                 <Button type="submit" className="w-full rounded-lg">
-                  Send Message
+                  {isSubmitting ? 'Sending...' : 'Send Message'}
                 </Button>
               </form>
             </div>
@@ -95,7 +233,9 @@ const ContactPage = () => {
                     <div>
                       <h3 className="font-medium text-foreground">Address</h3>
                       <p className="text-sm text-muted-foreground">
-                        123 Innovation Street, Tech City, TC 12345
+                        Innovative Hub,
+                  
+                        Near Gothapatana Square, Malipada, Bhubaneswar, Odisha, India - 751003
                       </p>
                     </div>
                   </div>
@@ -106,7 +246,7 @@ const ContactPage = () => {
                     <div>
                       <h3 className="font-medium text-foreground">Phone</h3>
                       <p className="text-sm text-muted-foreground">
-                        +1 (555) 123-4567
+                        <a href={`tel:${CONTACT_NUMBER}`} className="text-primary hover:underline">{CONTACT_NUMBER}</a>
                       </p>
                     </div>
                   </div>
@@ -117,7 +257,7 @@ const ContactPage = () => {
                     <div>
                       <h3 className="font-medium text-foreground">Email</h3>
                       <p className="text-sm text-muted-foreground">
-                        support@innovativehub.com
+                        innovativehubofficial@gmail.com
                       </p>
                     </div>
                   </div>

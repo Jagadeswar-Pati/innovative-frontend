@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ChevronRight, Cpu, Zap, CircuitBoard, Layers, Battery, Wifi, Settings, Box, ToggleRight, Monitor, LayoutGrid, Activity, Volume2, Plane, Wrench } from 'lucide-react';
 import EShopLayout from '../components/EShopLayout';
 import ProductCard from '../components/ProductCard';
+import { ProductSkeletonGrid, CategorySkeletonGrid } from '../components/ProductSkeleton';
 import { productsApi } from '../services/api';
 import { useCategories } from '../hooks/useCategories';
 import type { Product } from '../utils/products';
@@ -15,10 +16,12 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 const EShopHomePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { categories } = useCategories();
 
   useEffect(() => {
     const loadProducts = async () => {
+      setIsLoading(true);
       try {
         const res = await productsApi.getAll();
         if (res.success) {
@@ -26,6 +29,8 @@ const EShopHomePage = () => {
         }
       } catch (error) {
         console.error('Failed to load products:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
     loadProducts();
@@ -63,25 +68,29 @@ const EShopHomePage = () => {
         {/* Popular Categories */}
         <section className="mb-8 sm:mb-12">
           <h2 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">Popular categories</h2>
-          <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-2 sm:gap-4">
-            {popularCategories.map((category) => {
-              const IconComponent = iconMap[category.icon] || Box;
-              return (
-                <Link
-                  key={category._id}
-                  to={`/eshop/products?category=${category.slug}`}
-                  className="flex flex-col items-center gap-1 sm:gap-2 p-2 sm:p-3 bg-secondary/30 hover:bg-secondary/60 rounded-lg sm:rounded-xl transition-colors group"
-                >
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-primary/10 rounded-lg sm:rounded-xl flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                    <IconComponent className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-primary" />
-                  </div>
-                  <span className="text-[10px] sm:text-xs text-center text-muted-foreground group-hover:text-foreground transition-colors line-clamp-2">
-                    {category.name}
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
+          {isLoading ? (
+            <CategorySkeletonGrid />
+          ) : (
+            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-2 sm:gap-4 product-content-enter">
+              {popularCategories.map((category) => {
+                const IconComponent = iconMap[category.icon] || Box;
+                return (
+                  <Link
+                    key={category._id}
+                    to={`/eshop/products?category=${category.slug}`}
+                    className="flex flex-col items-center gap-1 sm:gap-2 p-2 sm:p-3 bg-secondary/30 hover:bg-secondary/60 rounded-lg sm:rounded-xl transition-colors group"
+                  >
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-primary/10 rounded-lg sm:rounded-xl flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                      <IconComponent className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-primary" />
+                    </div>
+                    <span className="text-[10px] sm:text-xs text-center text-muted-foreground group-hover:text-foreground transition-colors line-clamp-2">
+                      {category.name}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         {/* Tabs */}
@@ -101,37 +110,42 @@ const EShopHomePage = () => {
 
         {/* Featured Products Grid */}
         <section className="mb-8 sm:mb-12">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
-            {filteredProducts.map((product) => (
-              <ProductCard key={product._id} product={product} />
-            ))}
-          </div>
-        </section>
-
-        {/* Products by Category */}
-        {categoryNames.map((categoryName) => (
-          <section key={categoryName} className="mb-8 sm:mb-12">
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <h2 className="text-base sm:text-lg font-semibold text-foreground">{categoryName}</h2>
-              <Link 
-                to={`/eshop/products?category=${slugify(categoryName)}`}
-                className="flex items-center gap-1 text-xs sm:text-sm text-primary hover:underline"
-              >
-                View All
-                <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
-              </Link>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
-              {productsByCategory[categoryName].slice(0, 5).map((product) => (
+          {isLoading ? (
+            <ProductSkeletonGrid count={8} />
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 product-content-enter">
+              {filteredProducts.map((product) => (
                 <ProductCard key={product._id} product={product} />
               ))}
             </div>
-          </section>
-        ))}
+          )}
+        </section>
 
-        {/* No Results */}
-        {filteredProducts.length === 0 && (
-          <div className="text-center py-12">
+        {/* Products by Category - only show after loading */}
+        {!isLoading &&
+          categoryNames.map((categoryName) => (
+            <section key={categoryName} className="mb-8 sm:mb-12 product-content-enter">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <h2 className="text-base sm:text-lg font-semibold text-foreground">{categoryName}</h2>
+                <Link 
+                  to={`/eshop/products?category=${slugify(categoryName)}`}
+                  className="flex items-center gap-1 text-xs sm:text-sm text-primary hover:underline"
+                >
+                  View All
+                  <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
+                {productsByCategory[categoryName].slice(0, 5).map((product) => (
+                  <ProductCard key={product._id} product={product} />
+                ))}
+              </div>
+            </section>
+          ))}
+
+        {/* No Results - only after API has completed */}
+        {!isLoading && filteredProducts.length === 0 && (
+          <div className="text-center py-12 product-content-enter">
             <p className="text-muted-foreground text-lg">No products found for "{searchQuery}"</p>
             <button 
               onClick={() => setSearchQuery('')}

@@ -1,11 +1,15 @@
 import { X, ShoppingCart, Heart, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Product } from '../utils/products';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useToast } from '@/hooks/use-toast';
+import { formatPrice } from '@/utils/price';
+import { isCustom3dProduct, CONTACT_US_3D_SKU } from '@/utils/productHelpers';
+import { productsApi } from '../services/api';
 
 interface QuickViewModalProps {
   product: Product;
@@ -16,7 +20,9 @@ interface QuickViewModalProps {
 const QuickViewModal = ({ product, isOpen, onClose }: QuickViewModalProps) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [isAddingContactUs, setIsAddingContactUs] = useState(false);
   const autoSlideRef = useRef<number | null>(null);
+  const navigate = useNavigate();
   const { addToCart, isInCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const { toast } = useToast();
@@ -30,6 +36,7 @@ const QuickViewModal = ({ product, isOpen, onClose }: QuickViewModalProps) => {
     if (product.stock <= 10) return { label: `Limited stock (${product.stock})`, color: 'bg-yellow-500' };
     return { label: `In stock (${product.stock})`, color: 'bg-green-500' };
   })();
+  const isCustom3d = isCustom3dProduct(product);
 
   const nextImage = () => {
     setCurrentImageIndex((prev) => (prev + 1) % product.images.length);
@@ -45,6 +52,24 @@ const QuickViewModal = ({ product, isOpen, onClose }: QuickViewModalProps) => {
       return;
     }
     addToCart(product);
+  };
+
+  const handleContactUs3d = async () => {
+    setIsAddingContactUs(true);
+    try {
+      const res = await productsApi.getById(CONTACT_US_3D_SKU);
+      if (res.success && res.data) {
+        onClose();
+        sessionStorage.setItem('buyNowItem', JSON.stringify({ product: res.data, quantity: 1 }));
+        navigate('/checkout');
+      } else {
+        toast({ title: 'Error', description: 'Could not open checkout. Try again.', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Could not open checkout. Try again.', variant: 'destructive' });
+    } finally {
+      setIsAddingContactUs(false);
+    }
   };
 
   const handleWishlistToggle = () => {
@@ -164,19 +189,15 @@ const QuickViewModal = ({ product, isOpen, onClose }: QuickViewModalProps) => {
             
             {/* Price */}
             <div className="flex items-center gap-3 mb-6">
-              <span className="text-2xl font-bold text-primary">₹{product.price}</span>
+              <span className="text-2xl font-bold text-primary">₹{formatPrice(product.price)}</span>
               {product.mrp > product.price && (
                 <>
-                  <span className="text-lg text-muted-foreground line-through">₹{product.mrp}</span>
+                  <span className="text-lg text-muted-foreground line-through">₹{formatPrice(product.mrp)}</span>
                   <span className="text-sm text-green-500 font-medium">{discount}% off</span>
                 </>
               )}
             </div>
-            
-            {/* GST Note */}
-            <p className="text-xs text-muted-foreground mb-4">
-              {product.gstMode === 'excluding' ? '(excl. GST)' : '(incl. GST)'}
-            </p>
+            <p className="text-xs text-muted-foreground mb-4">Price (Excluding GST)</p>
 
             {/* Stock Status */}
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
@@ -190,24 +211,35 @@ const QuickViewModal = ({ product, isOpen, onClose }: QuickViewModalProps) => {
             </p>
             
             {/* Action Buttons */}
-            <div className="flex gap-3 mt-auto">
-              <Button 
-                className="flex-1 gap-2"
-                onClick={handleAddToCart}
-                variant={inCart ? 'secondary' : 'default'}
-              >
-                <ShoppingCart className="w-4 h-4" />
-                {inCart ? 'Added to Cart' : 'Add to Cart'}
-              </Button>
-              <Button 
-                variant="outline"
-                className={`gap-2 ${inWishlist ? 'text-destructive border-destructive' : ''}`}
-                onClick={handleWishlistToggle}
-              >
-                <Heart className={`w-4 h-4 ${inWishlist ? 'fill-current' : ''}`} />
-                {inWishlist ? 'Wishlisted' : 'Add to Wishlist'}
-              </Button>
-            </div>
+            {isCustom3d ? (
+              <div className="space-y-3 mt-auto">
+                <p className="text-xs text-muted-foreground">
+                  Pay for order to open Contact Us
+                </p>
+                <Button className="w-full" onClick={handleContactUs3d} disabled={isAddingContactUs}>
+                  {isAddingContactUs ? 'Opening…' : 'Pay for order — Contact us for Custom 3D Printing'}
+                </Button>
+              </div>
+            ) : (
+              <div className="flex gap-3 mt-auto">
+                <Button 
+                  className="flex-1 gap-2"
+                  onClick={handleAddToCart}
+                  variant={inCart ? 'secondary' : 'default'}
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  {inCart ? 'Added to Cart' : 'Add to Cart'}
+                </Button>
+                <Button 
+                  variant="outline"
+                  className={`gap-2 ${inWishlist ? 'text-destructive border-destructive' : ''}`}
+                  onClick={handleWishlistToggle}
+                >
+                  <Heart className={`w-4 h-4 ${inWishlist ? 'fill-current' : ''}`} />
+                  {inWishlist ? 'Wishlisted' : 'Add to Wishlist'}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>

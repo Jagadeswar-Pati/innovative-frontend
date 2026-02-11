@@ -1,41 +1,95 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Package, Truck, CheckCircle, Clock, MapPin, CreditCard, Calendar, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CheckCircle, Clock, MapPin, CreditCard, Calendar, ExternalLink, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import EShopLayout from '../components/EShopLayout';
 import { ordersApi, Order } from '../services/api';
+import { calculateGstBreakdown, formatPrice } from '@/utils/price';
+import { useToast } from '@/hooks/use-toast';
 
 const OrderDetailPage = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
+  const [isOpeningInvoice, setIsOpeningInvoice] = useState(false);
+
+  const fetchOrder = async () => {
+    if (!orderId) return;
+    setIsLoading(true);
+    try {
+      const response = await ordersApi.getById(orderId);
+      if (response.success && response.data) {
+        setOrder(response.data as Order);
+      } else {
+        setOrder(null);
+      }
+    } catch (error) {
+      console.error('Failed to fetch order:', error);
+      setOrder(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchOrder = async () => {
-      setIsLoading(true);
-      try {
-        const response = await ordersApi.getById(orderId!);
-        if (response.success && response.data) {
-          setOrder(response.data as Order);
-        } else {
-          setOrder(null);
-        }
-      } catch (error) {
-        console.error('Failed to fetch order:', error);
-        setOrder(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (orderId) {
-      fetchOrder();
-    }
+    if (orderId) fetchOrder();
   }, [orderId]);
+
+  const canHaveInvoice = order && (order.paymentStatus === 'paid' || order.paymentStatus === 'Paid' || ['confirmed', 'processing', 'shipped', 'delivered', 'Packed', 'Shipped', 'Delivered'].includes(order.orderStatus));
+  const hasInvoice = Boolean(order?.invoiceUrl);
+  const handleGenerateInvoice = async () => {
+    if (!orderId || !order) return;
+    setIsGeneratingInvoice(true);
+    try {
+      const res = await ordersApi.generateInvoice(orderId);
+      const data = (res as { data?: { invoiceUrl?: string; invoiceNumber?: string } })?.data;
+      if (data?.invoiceUrl) {
+        setOrder({ ...order, invoiceUrl: data.invoiceUrl, invoiceNumber: data.invoiceNumber || order.invoiceNumber });
+      }
+      await fetchOrder();
+    } catch (e) {
+      console.error('Generate invoice failed:', e);
+    } finally {
+      setIsGeneratingInvoice(false);
+    }
+  };
+
+  const handleOpenInvoice = async () => {
+    if (!orderId) return;
+    // Open window immediately so popup blocker doesn't block it
+    const newWin = window.open('', '_blank');
+    setIsOpeningInvoice(true);
+    try {
+      const blob = await ordersApi.getInvoiceBlob(orderId);
+      const url = URL.createObjectURL(blob);
+      const filename = `invoice-${order?.invoiceNumber || orderId}.pdf`;
+      if (newWin) {
+        newWin.location.href = url;
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      } else {
+        // Popup blocked: trigger download instead
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast({ title: 'Invoice downloaded', description: 'Open the PDF from your downloads.' });
+      }
+    } catch (e) {
+      console.error('Open invoice failed:', e);
+      const msg = e instanceof Error ? e.message : 'Failed to load invoice';
+      toast({ title: 'Could not load invoice', description: msg, variant: 'destructive' });
+      if (newWin) newWin.close();
+    } finally {
+      setIsOpeningInvoice(false);
+    }
+  };
 
   const getStatusBadge = (status: Order['orderStatus']) => {
     const statusConfig = {
@@ -114,18 +168,20 @@ const OrderDetailPage = () => {
   }
 
   const trackingSteps = getTrackingSteps(order.orderStatus);
+  const subtotal = order.products.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const breakdown = calculateGstBreakdown(subtotal);
 
   return (
     <EShopLayout>
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 max-w-6xl max-w-full">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/account')}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 sm:mb-8">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/account')} className="min-h-[44px] min-w-[44px] touch-manipulation shrink-0">
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold">Order {order._id}</h1>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold truncate">Order {order._id}</h1>
               <p className="text-sm text-muted-foreground">
                 Placed on {formatDate(order.createdAt)}
               </p>
@@ -191,6 +247,21 @@ const OrderDetailPage = () => {
                   </div>
                 )}
 
+                <div className="mt-6 pt-4 border-t border-border">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-primary" />
+                      <span>Order placed → email sent</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Mail className={`h-4 w-4 ${order.orderStatus === 'Delivered' ? 'text-success' : 'text-muted-foreground'}`} />
+                      <span className={order.orderStatus === 'Delivered' ? 'text-foreground' : 'text-muted-foreground'}>
+                        Order delivered → invoice sent
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
                 {order.trackingLink && (
                   <div className="mt-6 pt-4 border-t border-border">
                     <div className="flex items-center justify-between">
@@ -215,19 +286,24 @@ const OrderDetailPage = () => {
                   </div>
                 )}
 
-                {order.invoiceUrl && (
+                {canHaveInvoice && (
                   <div className="mt-4 pt-4 border-t border-border">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                       <div>
-                        <p className="text-sm text-muted-foreground">Invoice</p>
-                        <p className="font-mono font-medium truncate max-w-[200px]">{order.invoiceNumber || 'Invoice'}</p>
+                        <p className="text-sm text-muted-foreground">Invoice (PDF)</p>
+                        <p className="font-mono font-medium truncate max-w-[200px]">{order.invoiceNumber || '—'}</p>
                       </div>
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={order.invoiceUrl} target="_blank" rel="noopener noreferrer">
-                          Download Invoice
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={handleOpenInvoice} disabled={isOpeningInvoice}>
+                          {isOpeningInvoice ? 'Opening…' : 'View / Download Invoice (PDF)'}
                           <ExternalLink className="ml-2 h-4 w-4" />
-                        </a>
-                      </Button>
+                        </Button>
+                        {!hasInvoice && (
+                          <Button variant="outline" size="sm" onClick={handleGenerateInvoice} disabled={isGeneratingInvoice}>
+                            {isGeneratingInvoice ? 'Generating…' : 'Generate & email link'}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -276,9 +352,9 @@ const OrderDetailPage = () => {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold">₹{item.price * item.qty}</p>
+                        <p className="font-semibold">₹{formatPrice(item.price * item.qty)}</p>
                         <p className="text-sm text-muted-foreground">
-                          ₹{item.price} each
+                          ₹{formatPrice(item.price)} each
                         </p>
                       </div>
                     </div>
@@ -298,17 +374,21 @@ const OrderDetailPage = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span>₹{order.totalAmount}</span>
+                  <span className="text-muted-foreground">Product Total (Excl. GST)</span>
+                  <span>₹{formatPrice(breakdown.subtotal)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">GST @18%</span>
+                  <span>₹{formatPrice(breakdown.gstAmount)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Shipping</span>
-                  <span className="text-green-500">Free</span>
+                  <span>{(order.deliveryCharge ?? 0) === 0 ? 'Free' : `₹${formatPrice(order.deliveryCharge ?? 0)}`}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between font-semibold text-lg">
-                  <span>Total</span>
-                  <span className="text-primary">₹{order.totalAmount}</span>
+                  <span>Final Amount Paid</span>
+                  <span className="text-primary">₹{formatPrice(order.totalAmount)}</span>
                 </div>
               </CardContent>
             </Card>

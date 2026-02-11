@@ -1,5 +1,6 @@
 // API Service for connecting to external backend
-const API_URL = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_URL || 'http://localhost:5000');
+const RAW_API_URL = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_URL || 'http://localhost:5000');
+const API_URL = RAW_API_URL.endsWith('/') ? RAW_API_URL.slice(0, -1) : RAW_API_URL;
 
 interface ApiResponse<T = unknown> {
   success: boolean;
@@ -370,6 +371,7 @@ const toFrontendOrder = (o: Record<string, unknown>): Order => ({
     };
   })(),
   totalAmount: Number(o.totalAmount ?? (o.pricing as { totalAmount?: number })?.totalAmount) || 0,
+  deliveryCharge: Number(o.delivery_charge ?? (o.pricing as { deliveryCharge?: number })?.deliveryCharge) ?? 0,
   paymentStatus: paymentStatusMap[(o.paymentStatus as string) || ''] || 'Pending',
   orderStatus: orderStatusMap[(o.orderStatus as string) || ''] || 'Placed',
   paymentMethod: (o.paymentMethod as string) || '',
@@ -405,6 +407,103 @@ export const ordersApi = {
     const raw = (res as ApiResponse<unknown>).data ?? res;
     return { success: true, data: toFrontendOrder(raw as Record<string, unknown>), message: '' } as ApiResponse<Order>;
   },
+
+  /** Generate PDF invoice for confirmed/paid order (if not already generated). */
+  generateInvoice: async (orderId: string) => {
+    const res = await fetchWithAuth<{ invoiceNumber: string; invoiceUrl: string }>(`/api/orders/${orderId}/generate-invoice`, {
+      method: 'POST',
+    });
+    return res;
+  },
+
+  /** Fetch invoice PDF as blob (served with correct Content-Type so browser can display it). */
+  getInvoiceBlob: async (orderId: string): Promise<Blob> => {
+    const token = localStorage.getItem('authToken');
+    const url = `${API_URL}/api/orders/${orderId}/invoice`;
+    const res = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      const contentType = res.headers.get('content-type');
+      const isJson = contentType && contentType.includes('application/json');
+      const body = isJson ? await res.json().catch(() => ({})) : {};
+      const message = (body as { message?: string }).message || res.statusText || 'Failed to load invoice';
+      throw new Error(message);
+    }
+    return res.blob();
+  },
+};
+
+// ============ REVIEWS & COMMENTS API ============
+export interface Review {
+  _id: string;
+  productId: string;
+  userId: string | { _id?: string; name?: string; profileImage?: string };
+  userName?: string;
+  userProfileImage?: string;
+  rating: number;
+  valueForMoney?: number;
+  durability?: number;
+  deliverySpeed?: number;
+  comment?: string;
+  pros?: string;
+  cons?: string;
+  createdAt?: string;
+}
+
+export interface Comment {
+  _id: string;
+  productId: string;
+  userId: string;
+  userName?: string;
+  comment: string;
+  createdAt?: string;
+}
+
+export const reviewsApi = {
+  getByProduct: async (productId: string) => {
+    const query = new URLSearchParams({ productId }).toString();
+    return fetchWithAuth<Review[]>(`/api/reviews/public?${query}`);
+  },
+  getMode: async () => {
+    return fetchWithAuth<{ mode: 'any-user' | 'delivered-only' }>('/api/reviews/mode');
+  },
+  create: async (data: {
+    productId: string;
+    orderId?: string;
+    rating: number;
+    valueForMoney?: number;
+    durability?: number;
+    deliverySpeed?: number;
+    comment?: string;
+    pros?: string;
+    cons?: string;
+  }) => {
+    return fetchWithAuth<Review>('/api/reviews', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+};
+
+export const commentsApi = {
+  getByProduct: async (productId: string) => {
+    const query = new URLSearchParams({ productId }).toString();
+    return fetchWithAuth<Comment[]>(`/api/comments?${query}`);
+  },
+};
+
+// ============ DELIVERY API (for checkout) ============
+export const deliveryApi = {
+  getStateCharges: async (state: string) => {
+    const res = await fetch(`${API_URL}/api/delivery/state-charges?state=${encodeURIComponent(state || '')}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: 'Failed to fetch delivery charges' }));
+      throw new Error(err.message || 'Failed to fetch delivery charges');
+    }
+    const json = await res.json();
+    return json.data as { state: string; defaultShippingCharge: number; manualBaseCharge: number };
+  },
 };
 
 // ============ PAYMENTS API ============
@@ -412,8 +511,11 @@ export const paymentsApi = {
   createRazorpayOrder: async (data: {
     products: Array<{ productId: string; qty: number }>;
     address: Address;
+    deliveryMethod: 'default' | 'manual';
+    deliveryAgreement?: boolean;
+    deliveryMobileNumber?: string;
   }) => {
-    return fetchWithAuth<{ orderId: string; amount: number; currency: string; keyId: string }>(
+    return fetchWithAuth<{ orderId: string; amount: number; currency: string; keyId: string; deliveryCharge?: number; totalAmount?: number }>(
       '/api/payments/razorpay/order',
       {
         method: 'POST',
@@ -427,6 +529,9 @@ export const paymentsApi = {
     razorpay_signature: string;
     products: Array<{ productId: string; qty: number }>;
     address: Address;
+    deliveryMethod: 'default' | 'manual';
+    deliveryAgreement?: boolean;
+    deliveryMobileNumber?: string;
   }) => {
     return fetchWithAuth<{ orderId: string }>(
       '/api/payments/razorpay/verify',
@@ -552,6 +657,7 @@ export interface Order {
   }>;
   address: Address;
   totalAmount: number;
+  deliveryCharge?: number;
   paymentStatus: 'Pending' | 'Paid' | 'Failed';
   orderStatus: 'Placed' | 'Packed' | 'Shipped' | 'Delivered' | 'Cancelled';
   paymentMethod?: string;

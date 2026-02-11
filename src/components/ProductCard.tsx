@@ -3,10 +3,13 @@ import { ShoppingCart, Heart, Eye } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Product } from '../utils/products';
+import { formatPrice } from '@/utils/price';
+import { isCustom3dProduct, CONTACT_US_3D_SKU } from '@/utils/productHelpers';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import QuickViewModal from './QuickViewModal';
 import { useToast } from '@/hooks/use-toast';
+import { productsApi } from '../services/api';
 
 interface ProductCardProps {
   product: Product;
@@ -16,6 +19,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showQuickView, setShowQuickView] = useState(false);
+  const [isAddingContactUs, setIsAddingContactUs] = useState(false);
   const navigate = useNavigate();
   
   const { addToCart, isInCart } = useCart();
@@ -30,6 +34,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
     if (product.stock <= 10) return { label: `Limited stock (${product.stock})`, color: 'bg-yellow-500' };
     return { label: `In stock (${product.stock})`, color: 'bg-green-500' };
   })();
+  const isCustom3d = isCustom3dProduct(product);
 
   const handleWishlistToggle = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -49,6 +54,25 @@ const ProductCard = ({ product }: ProductCardProps) => {
       return;
     }
     addToCart(product);
+  };
+
+  const handleContactUs3d = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsAddingContactUs(true);
+    try {
+      const res = await productsApi.getById(CONTACT_US_3D_SKU);
+      if (res.success && res.data) {
+        sessionStorage.setItem('buyNowItem', JSON.stringify({ product: res.data, quantity: 1 }));
+        navigate('/checkout');
+      } else {
+        toast({ title: 'Error', description: 'Could not open checkout. Try again.', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Could not open checkout. Try again.', variant: 'destructive' });
+    } finally {
+      setIsAddingContactUs(false);
+    }
   };
 
   const handleQuickView = (e: React.MouseEvent) => {
@@ -149,9 +173,9 @@ const ProductCard = ({ product }: ProductCardProps) => {
             
           {/* Price */}
           <div className="flex items-center gap-1 sm:gap-2 pt-0.5 sm:pt-1">
-            <span className="text-sm sm:text-base font-bold text-primary">₹{product.price}</span>
+            <span className="text-sm sm:text-base font-bold text-primary">₹{formatPrice(product.price)}</span>
             {product.mrp > product.price && (
-              <span className="text-[10px] sm:text-sm text-muted-foreground line-through">₹{product.mrp}</span>
+              <span className="text-[10px] sm:text-sm text-muted-foreground line-through">₹{formatPrice(product.mrp)}</span>
             )}
           </div>
 
@@ -162,23 +186,41 @@ const ProductCard = ({ product }: ProductCardProps) => {
           </div>
             
           {/* Add to Cart Button */}
-          <Button 
-            size="sm" 
-            className="w-full mt-1 sm:mt-2 gap-1 sm:gap-2 text-xs sm:text-sm h-8 sm:h-9"
-            onClick={handleAddToCart}
-            variant={isInCart(product._id) ? 'secondary' : 'default'}
-          >
-            <ShoppingCart className="w-3 h-3 sm:w-4 sm:h-4" />
-            {isInCart(product._id) ? 'Added' : 'Add to Cart'}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="w-full mt-2 gap-1 sm:gap-2 text-xs sm:text-sm h-8 sm:h-9"
-            onClick={handleBuyNow}
-          >
-            Buy Now
-          </Button>
+          {isCustom3d ? (
+            <>
+              <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                Custom pricing depends on design & material
+              </p>
+              <Button
+                size="sm"
+                className="w-full mt-2 text-xs sm:text-sm h-8 sm:h-9"
+                onClick={handleContactUs3d}
+                disabled={isAddingContactUs}
+              >
+                {isAddingContactUs ? 'Opening…' : 'Pay for order — Contact us'}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button 
+                size="sm" 
+                className="w-full mt-1 sm:mt-2 gap-1 sm:gap-2 text-xs sm:text-sm h-8 sm:h-9"
+                onClick={handleAddToCart}
+                variant={isInCart(product._id) ? 'secondary' : 'default'}
+              >
+                <ShoppingCart className="w-3 h-3 sm:w-4 sm:h-4" />
+                {isInCart(product._id) ? 'Added' : 'Add to Cart'}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full mt-2 gap-1 sm:gap-2 text-xs sm:text-sm h-8 sm:h-9"
+                onClick={handleBuyNow}
+              >
+                Buy Now
+              </Button>
+            </>
+          )}
         </div>
       </div>
       

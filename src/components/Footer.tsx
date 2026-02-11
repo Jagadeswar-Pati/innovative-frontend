@@ -24,8 +24,8 @@ const Footer = () => {
 
   return (
     <footer className="bg-footer border-t border-border">
-      <div className="container mx-auto px-4 py-12 md:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
+      <div className="container mx-auto px-4 py-8 sm:py-10 md:py-12 lg:py-16 max-w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-10 lg:gap-12">
           {/* Brand Column */}
           <div className="space-y-4">
             <h3 className="text-xl font-bold text-footer-text">
@@ -59,7 +59,7 @@ const Footer = () => {
                 <li key={link.path}>
                   <Link
                     to={link.path}
-                    className="text-sm text-footer-muted hover:text-white transition-colors"
+                    className="text-sm text-footer-muted hover:text-white transition-colors py-2 block touch-manipulation min-h-[44px] flex items-center"
                   >
                     {link.name}
                   </Link>
@@ -76,7 +76,7 @@ const Footer = () => {
                 <li key={link.path}>
                   <Link
                     to={link.path}
-                    className="text-sm text-footer-muted hover:text-white transition-colors"
+                    className="text-sm text-footer-muted hover:text-white transition-colors py-2 block touch-manipulation min-h-[44px] flex items-center"
                   >
                     {link.name}
                   </Link>
@@ -95,8 +95,8 @@ const Footer = () => {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-12 pt-8 border-t border-white/10">
-          <p className="text-center text-sm text-footer-muted">
+        <div className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-white/10">
+          <p className="text-center text-xs sm:text-sm text-footer-muted px-2">
             © 2025 Innovative Hub. All rights reserved.
           </p>
         </div>

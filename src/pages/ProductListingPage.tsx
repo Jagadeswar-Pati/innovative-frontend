@@ -3,6 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { ChevronDown, Grid3X3, List } from 'lucide-react';
 import EShopLayout from '../components/EShopLayout';
 import ProductCard from '../components/ProductCard';
+import { ProductSkeletonGrid } from '../components/ProductSkeleton';
 import { productsApi } from '../services/api';
 import { useCategories } from '../hooks/useCategories';
 import type { Product } from '../utils/products';
@@ -26,10 +27,12 @@ const ProductListingPage = () => {
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { categories } = useCategories();
 
   useEffect(() => {
     const loadProducts = async () => {
+      setIsLoading(true);
       try {
         const res = await productsApi.getAll();
         if (res.success) {
@@ -37,6 +40,8 @@ const ProductListingPage = () => {
         }
       } catch (error) {
         console.error('Failed to load products:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
     loadProducts();
@@ -127,7 +132,9 @@ const ProductListingPage = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-6 sm:mb-8">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-foreground">{currentCategory}</h1>
-            <p className="text-sm text-muted-foreground">{filteredAndSortedProducts.length} products found</p>
+            <p className="text-sm text-muted-foreground">
+            {isLoading ? 'Loading…' : `${filteredAndSortedProducts.length} products found`}
+          </p>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
@@ -153,17 +160,19 @@ const ProductListingPage = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* View Toggle */}
+            {/* View Toggle - touch-friendly */}
             <div className="flex border border-border rounded-lg overflow-hidden">
               <button
+                type="button"
                 onClick={() => setViewMode('grid')}
-                className={`p-1.5 sm:p-2 ${viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-secondary'}`}
+                className={`p-3 sm:p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation ${viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-secondary'}`}
               >
                 <Grid3X3 className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               <button
+                type="button"
                 onClick={() => setViewMode('list')}
-                className={`p-1.5 sm:p-2 ${viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-secondary'}`}
+                className={`p-3 sm:p-2 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation ${viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-secondary'}`}
               >
                 <List className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
@@ -189,22 +198,33 @@ const ProductListingPage = () => {
         </div>
 
         {/* Products Grid */}
-        {filteredAndSortedProducts.length > 0 ? (
-          <div className={`grid gap-2 sm:gap-4 ${
-            viewMode === 'grid' 
-              ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5' 
-              : 'grid-cols-1'
-          }`}>
-            {filteredAndSortedProducts.map((product) => (
-              <ProductCard key={product._id} product={product} />
-            ))}
-          </div>
-        ) : (
+        {isLoading ? (
+          <ProductSkeletonGrid
+            count={8}
+            gridClass={
+              viewMode === 'grid'
+                ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
+                : 'grid-cols-1'
+            }
+          />
+        ) : !isLoading && filteredAndSortedProducts.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground text-lg">No products found</p>
             <Link to="/eshop/products" className="mt-4 text-primary hover:underline inline-block">
               View all products
             </Link>
+          </div>
+        ) : (
+          <div
+            className={`grid gap-2 sm:gap-4 product-content-enter ${
+              viewMode === 'grid'
+                ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
+                : 'grid-cols-1'
+            }`}
+          >
+            {filteredAndSortedProducts.map((product) => (
+              <ProductCard key={product._id} product={product} />
+            ))}
           </div>
         )}
       </div>

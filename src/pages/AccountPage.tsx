@@ -18,6 +18,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { ordersApi, userApi, Order, Address } from '../services/api';
+import { formatPrice } from '@/utils/price';
 
 const AccountPage = () => {
   const navigate = useNavigate();
@@ -270,23 +271,23 @@ const AccountPage = () => {
 
   return (
     <Layout>
-      <div className="network-bg py-8 md:py-12 min-h-screen">
-        <div className="container mx-auto px-4">
+      <div className="network-bg py-6 sm:py-8 md:py-12 min-h-screen min-h-[100dvh]">
+        <div className="container mx-auto px-3 sm:px-4 max-w-full">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">My Account</h1>
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-2">My Account</h1>
             <p className="text-muted-foreground">Welcome back, {user?.name || user?.email?.split('@')[0] || 'User'}!</p>
           </div>
 
           {/* Dashboard Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="bg-card/60 backdrop-blur-sm border border-border p-1 h-auto flex-wrap">
-              <TabsTrigger value="orders" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
+            <TabsList className="bg-card/60 backdrop-blur-sm border border-border p-1 h-auto flex-wrap gap-1">
+              <TabsTrigger value="orders" className="gap-2 min-h-[44px] touch-manipulation data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <Package className="w-4 h-4" />
                 <span className="hidden sm:inline">My Orders</span>
                 <span className="sm:hidden">Orders</span>
               </TabsTrigger>
-              <TabsTrigger value="wishlist" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <TabsTrigger value="wishlist" className="gap-2 min-h-[44px] touch-manipulation data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <Heart className="w-4 h-4" />
                 <span className="hidden sm:inline">Wishlist</span>
                 <span className="sm:hidden">Wishlist</span>
@@ -296,17 +297,17 @@ const AccountPage = () => {
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="settings" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <TabsTrigger value="settings" className="gap-2 min-h-[44px] touch-manipulation data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <Settings className="w-4 h-4" />
                 <span className="hidden sm:inline">Settings</span>
                 <span className="sm:hidden">Settings</span>
               </TabsTrigger>
-              <TabsTrigger value="addresses" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <TabsTrigger value="addresses" className="gap-2 min-h-[44px] touch-manipulation data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <MapPin className="w-4 h-4" />
                 <span className="hidden sm:inline">Addresses</span>
                 <span className="sm:hidden">Address</span>
               </TabsTrigger>
-              <TabsTrigger value="logout" className="gap-2 text-destructive data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground">
+              <TabsTrigger value="logout" className="gap-2 min-h-[44px] touch-manipulation text-destructive data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground">
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline">Logout</span>
                 <span className="sm:hidden">Logout</span>
@@ -363,7 +364,7 @@ const AccountPage = () => {
                                 <span>•</span>
                                 <span>Method: <span className="font-medium text-foreground">{order.paymentMethod || '—'}</span></span>
                               </div>
-                              <p className="text-sm font-semibold text-primary">₹{order.totalAmount.toLocaleString('en-IN')}</p>
+                              <p className="text-sm font-semibold text-primary">₹{formatPrice(order.totalAmount)}</p>
                             </div>
                             <div className="flex flex-col sm:items-end gap-2">
                               {getOrderStatusBadge(order.orderStatus)}
@@ -429,8 +430,8 @@ const AccountPage = () => {
                           </Link>
                           <h4 className="font-medium text-sm line-clamp-2 mb-2">{product.name}</h4>
                           <div className="flex items-center gap-2 mb-3">
-                            <span className="font-bold text-primary">₹{product.price.toLocaleString('en-IN')}</span>
-                            <span className="text-xs text-muted-foreground line-through">₹{product.mrp.toLocaleString('en-IN')}</span>
+                            <span className="font-bold text-primary">₹{formatPrice(product.price)}</span>
+                            <span className="text-xs text-muted-foreground line-through">₹{formatPrice(product.mrp)}</span>
                           </div>
                           <div className="flex gap-2">
                             <Button

@@ -50,17 +50,17 @@ const ResetPasswordPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen min-h-[100dvh] bg-background flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
+        <div className="text-center mb-6 sm:mb-8">
           <Link to="/">
-            <img src={logo} alt="Innovative Hub" className="h-16 mx-auto mb-4" />
+            <img src={logo} alt="Innovative Hub" className="h-14 sm:h-16 mx-auto mb-4" />
           </Link>
-          <h1 className="text-2xl font-bold text-foreground">Reset Password</h1>
-          <p className="text-muted-foreground mt-2">Set a new password for your account.</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Reset Password</h1>
+          <p className="text-muted-foreground mt-2 text-sm sm:text-base">Set a new password for your account.</p>
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-6 shadow-lg">
+        <div className="bg-card border border-border rounded-xl p-4 sm:p-6 shadow-lg">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="password">New Password</Label>
@@ -96,13 +96,13 @@ const ResetPasswordPage = () => {
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full min-h-[48px] touch-manipulation" disabled={isLoading}>
               {isLoading ? 'Saving...' : 'Update Password'}
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-muted-foreground">
-            <Link to="/login" className="text-primary hover:underline">Back to login</Link>
+          <div className="mt-6 text-center text-sm text-muted-foreground py-2">
+            <Link to="/login" className="text-primary hover:underline touch-manipulation inline-block py-2">Back to login</Link>
           </div>
         </div>
       </div>
