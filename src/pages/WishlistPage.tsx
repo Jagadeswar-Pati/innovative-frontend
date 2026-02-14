@@ -75,7 +75,12 @@ const WishlistPage = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-            {items.map((product) => (
+            {items.map((product) => {
+              const shortDescriptionPreview = product.shortDescription
+                .replace(/<[^>]*>/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+              return (
               <div key={product._id} className="bg-card border border-border rounded-xl p-3 sm:p-4 flex flex-col">
                 <Link to={`/product/${product._id}`} className="flex gap-3 sm:gap-4 min-w-0">
                   <img
@@ -85,7 +90,7 @@ const WishlistPage = () => {
                   />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-foreground text-sm sm:text-base line-clamp-2">{product.name}</p>
-                    <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">{product.shortDescription}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">{shortDescriptionPreview}</p>
                     <p className="text-primary font-semibold mt-1 text-sm sm:text-base">₹{formatPrice(product.price)}</p>
                   </div>
                 </Link>
@@ -110,7 +115,8 @@ const WishlistPage = () => {
                   </Button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

@@ -35,6 +35,10 @@ const ProductCard = ({ product }: ProductCardProps) => {
     return { label: `In stock (${product.stock})`, color: 'bg-green-500' };
   })();
   const isCustom3d = isCustom3dProduct(product);
+  const shortDescriptionPreview = product.shortDescription
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
   const handleWishlistToggle = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -168,7 +172,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
             {product.name}
           </h3>
           <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-1">
-            {product.shortDescription}
+            {shortDescriptionPreview}
           </p>
             
           {/* Price */}

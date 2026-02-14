@@ -115,27 +115,24 @@ const ProductDetailPage = () => {
   })();
   const isCustom3d = isCustom3dProduct(product);
 
-  const shortDescParts = (() => {
-    const cleaned = product.shortDescription.replace(/^Applications:\s*/i, '').trim();
-    if (!cleaned) return [];
-    let parts = cleaned
-      .split(/(?=To\s)/i)
-      .map((part) => part.trim())
-      .filter(Boolean);
-    if (parts.length <= 1) {
-      parts = cleaned
-        .split(/[.\n;]+/)
-        .map((part) => part.trim())
-        .filter(Boolean);
-    }
-    return parts;
-  })();
-
   const escapeHtml = (value: string) =>
     value
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
+
+  const rawShort = product.shortDescription?.trim() || '';
+  const shortHasHtml = /<\/?[a-z][\s\S]*>/i.test(rawShort);
+  const formattedShortHtml = (() => {
+    if (!rawShort) return '';
+    if (shortHasHtml) return rawShort;
+    return rawShort
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => `<p>${escapeHtml(line)}</p>`)
+      .join('');
+  })();
 
   const rawLong = product.longDescription?.trim() || '';
   const hasHtml = /<\/?[a-z][\s\S]*>/i.test(rawLong);
@@ -320,11 +317,10 @@ const ProductDetailPage = () => {
               {/* Quick Notes */}
               <div className="text-sm text-muted-foreground">
                 <p className="font-medium text-foreground mb-2">QUICK NOTES:</p>
-                <ul className="space-y-1 list-disc list-inside">
-                  {shortDescParts.slice(0, 8).map((note, idx) => (
-                    <li key={idx}>{note}</li>
-                  ))}
-                </ul>
+                <div
+                  className="prose prose-sm max-w-none text-muted-foreground"
+                  dangerouslySetInnerHTML={{ __html: formattedShortHtml }}
+                />
               </div>
 
               {/* Price */}
