@@ -1,0 +1,102 @@
+import { lazy, Suspense, useState } from "react";
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+
+// Context Providers
+import { CartProvider } from "./context/CartContext";
+import { WishlistProvider } from "./context/WishlistContext";
+import { AuthProvider } from "./context/AuthContext";
+
+// Frontend Components (Layout + above-the-fold kept eager for fast FCP)
+import LoadingScreen from "./components/LoadingScreen";
+import Layout from "./components/Layout";
+import ScrollToTop from "./components/ScrollToTop";
+import HomePage from "./pages/HomePage";
+import EShopHomePage from "./pages/EShopHomePage";
+
+// Route-level code splitting: lazy load pages for smaller initial bundle
+const ProductListingPage = lazy(() => import("./pages/ProductListingPage"));
+const ProductDetailPage = lazy(() => import("./pages/ProductDetailPage"));
+const CartPage = lazy(() => import("./pages/CartPage"));
+const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
+const OrderSuccessPage = lazy(() => import("./pages/OrderSuccessPage"));
+const AboutPage = lazy(() => import("./pages/AboutPage"));
+const ContactPage = lazy(() => import("./pages/ContactPage"));
+const FAQPage = lazy(() => import("./pages/FAQPage"));
+const AccountPage = lazy(() => import("./pages/AccountPage"));
+const OrderTrackingPage = lazy(() => import("./pages/OrderTrackingPage"));
+const OrderDetailPage = lazy(() => import("./pages/OrderDetailPage"));
+const WishlistPage = lazy(() => import("./pages/WishlistPage"));
+const ComingSoonPage = lazy(() => import("./pages/ComingSoonPage"));
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
+const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+function PageFallback() {
+  return (
+    <div className="min-h-[40vh] flex items-center justify-center" aria-hidden="true">
+      <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+    </div>
+  );
+}
+
+const queryClient = new QueryClient();
+
+const App = () => {
+  const [isLoading, setIsLoading] = useState(true);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <AuthProvider>
+          <CartProvider>
+            <WishlistProvider>
+              <Toaster />
+              <Sonner />
+              {isLoading ? (
+                <LoadingScreen onLoadingComplete={() => setIsLoading(false)} />
+              ) : (
+                <BrowserRouter>
+                  <ScrollToTop />
+                  <Suspense fallback={<PageFallback />}>
+                    <Routes>
+                      <Route path="/" element={<Layout><HomePage /></Layout>} />
+                      <Route path="/login" element={<LoginPage />} />
+                      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                      <Route path="/reset-password" element={<ResetPasswordPage />} />
+                      <Route path="/verify-email" element={<VerifyEmailPage />} />
+                      <Route path="/eshop" element={<EShopHomePage />} />
+                      <Route path="/eshop/products" element={<ProductListingPage />} />
+                      <Route path="/product/:id" element={<ProductDetailPage />} />
+                      <Route path="/cart" element={<CartPage />} />
+                      <Route path="/checkout" element={<CheckoutPage />} />
+                      <Route path="/order-success" element={<OrderSuccessPage />} />
+                      <Route path="/about" element={<AboutPage />} />
+                      <Route path="/contact" element={<ContactPage />} />
+                      <Route path="/faq" element={<FAQPage />} />
+                      <Route path="/account" element={<AccountPage />} />
+                      <Route path="/order/:orderId" element={<OrderDetailPage />} />
+                      <Route path="/order-tracking" element={<OrderTrackingPage />} />
+                      <Route path="/wishlist" element={<WishlistPage />} />
+                      <Route path="/robotics-courses" element={<ComingSoonPage title="Robotics Courses & Tutorials" />} />
+                      <Route path="/project-kits" element={<ComingSoonPage title="Project Kits & Consultation" />} />
+                      <Route path="/resources" element={<ComingSoonPage title="Resources & Ideas Hub" />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </Suspense>
+                </BrowserRouter>
+              )}
+            </WishlistProvider>
+          </CartProvider>
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
+
+export default App;

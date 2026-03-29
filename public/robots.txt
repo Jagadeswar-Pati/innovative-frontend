@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://inovative-hub.com/sitemap.xml
