@@ -79,7 +79,7 @@ const EShopHomePage = ({ useMainLayout = false }: EShopHomePageProps) => {
   const content = (
     <>
       <SEO
-        title="E-Shop — Electronic Components & Robotics"
+        title="Innovative Hub · E-Shop"
         description="Shop electronic components, robotics kits, microcontrollers, sensors, and DIY project materials at Innovative Hub. Quality parts, competitive prices, delivery across India."
         path="/eshop"
       />
