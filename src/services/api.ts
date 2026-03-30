@@ -470,6 +470,7 @@ export interface Review {
   comment?: string;
   pros?: string;
   cons?: string;
+  status?: 'approved' | 'pending' | 'rejected';
   createdAt?: string;
 }
 
@@ -503,6 +504,28 @@ export const reviewsApi = {
   }) => {
     return fetchWithAuth<Review>('/api/reviews', {
       method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  deleteMine: async (reviewId: string) => {
+    return fetchWithAuth<{ message: string }>(`/api/reviews/my/${reviewId}`, {
+      method: 'DELETE',
+    });
+  },
+  updateMine: async (
+    reviewId: string,
+    data: {
+      rating?: number;
+      valueForMoney?: number;
+      durability?: number;
+      deliverySpeed?: number;
+      comment?: string;
+      pros?: string;
+      cons?: string;
+    }
+  ) => {
+    return fetchWithAuth<Review>(`/api/reviews/my/${reviewId}`, {
+      method: 'PATCH',
       body: JSON.stringify(data),
     });
   },

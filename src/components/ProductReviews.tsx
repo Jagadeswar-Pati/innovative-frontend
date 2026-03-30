@@ -3,8 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { Star, ChevronDown, ChevronUp } from 'lucide-react';
+import { Star, ChevronDown, ChevronUp, Trash2, Pencil } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { ordersApi, reviewsApi, Review } from '@/services/api';
 import { cn } from '@/lib/utils';
@@ -16,6 +15,7 @@ interface ProductReviewsProps {
 const REVIEW_TEXT_PREVIEW = 260;
 const PRO_CON_PREVIEW = 140;
 const INITIAL_VISIBLE_REVIEWS = 5;
+const USER_DELETE_REVIEW_WINDOW_MS = 4 * 24 * 60 * 60 * 1000;
 
 const StarRating = ({
   value,
@@ -68,21 +68,34 @@ function truncateWithEllipsis(text: string, maxChars: number): { short: string; 
   return { short: `${cut.trim()}…`, needsMore: true };
 }
 
+function truncateByLines(text: string, maxLines: number): { short: string; needsMore: boolean } {
+  const normalized = text.replace(/\r\n/g, '\n').trim();
+  const lines = normalized.split('\n');
+  if (lines.length <= maxLines) return { short: normalized, needsMore: false };
+  const preview = lines.slice(0, maxLines).join('\n').trimEnd();
+  return { short: `${preview}…`, needsMore: true };
+}
+
 const ExpandableText = ({
   text,
   previewChars,
+  previewLines,
   className,
   label,
 }: {
   text: string;
-  previewChars: number;
+  previewChars?: number;
+  previewLines?: number;
   className?: string;
   label?: string;
 }) => {
   const [expanded, setExpanded] = useState(false);
   const raw = text?.trim() || '';
   if (!raw) return null;
-  const { short, needsMore } = truncateWithEllipsis(raw, previewChars);
+  const { short, needsMore } =
+    typeof previewLines === 'number' && previewLines > 0
+      ? truncateByLines(raw, previewLines)
+      : truncateWithEllipsis(raw, previewChars ?? REVIEW_TEXT_PREVIEW);
   const showToggle = needsMore && !expanded;
 
   return (
@@ -113,12 +126,14 @@ const ExpandableText = ({
 };
 
 const ProductReviews = ({ productId }: ProductReviewsProps) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const location = useLocation();
   const loginUrl = `/login?redirect=${encodeURIComponent(location.pathname)}`;
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
   const [eligibleOrderId, setEligibleOrderId] = useState<string>('');
   const [reviewMode, setReviewMode] = useState<'any-user' | 'delivered-only'>('delivered-only');
   const [showAllReviews, setShowAllReviews] = useState(false);
@@ -198,18 +213,31 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
-    await reviewsApi.create({
-      productId,
-      orderId: eligibleOrderId || undefined,
-      rating: form.rating,
-      valueForMoney: form.valueForMoney || undefined,
-      durability: form.durability || undefined,
-      deliverySpeed: form.deliverySpeed || undefined,
-      comment: form.comment.trim(),
-      pros: form.pros.trim() || undefined,
-      cons: form.cons.trim() || undefined,
-    });
+    if (editingReviewId) {
+      await reviewsApi.updateMine(editingReviewId, {
+        rating: form.rating,
+        valueForMoney: form.valueForMoney || undefined,
+        durability: form.durability || undefined,
+        deliverySpeed: form.deliverySpeed || undefined,
+        comment: form.comment.trim(),
+        pros: form.pros.trim() || undefined,
+        cons: form.cons.trim() || undefined,
+      });
+    } else {
+      await reviewsApi.create({
+        productId,
+        orderId: eligibleOrderId || undefined,
+        rating: form.rating,
+        valueForMoney: form.valueForMoney || undefined,
+        durability: form.durability || undefined,
+        deliverySpeed: form.deliverySpeed || undefined,
+        comment: form.comment.trim(),
+        pros: form.pros.trim() || undefined,
+        cons: form.cons.trim() || undefined,
+      });
+    }
     setShowModal(false);
+    setEditingReviewId(null);
     setForm({ rating: 0, valueForMoney: 0, durability: 0, deliverySpeed: 0, comment: '', pros: '', cons: '' });
     const reviewRes = await reviewsApi.getByProduct(productId).catch(() => null);
     const reviewList = (reviewRes as { data?: Review[] })?.data || [];
@@ -227,6 +255,50 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
   const totalReviewCount = reviews.length;
   const hasMoreReviewsToLoad = totalReviewCount > INITIAL_VISIBLE_REVIEWS && !showAllReviews;
   const useTwoColumnGrid = displayedReviews.length > INITIAL_VISIBLE_REVIEWS;
+  const currentUserId = user?._id || '';
+
+  const getReviewOwnerId = (review: Review) =>
+    typeof review.userId === 'object' ? review.userId?._id || '' : review.userId || '';
+
+  const canUserDeleteReview = (review: Review) => {
+    if (!isAuthenticated || !currentUserId) return false;
+    const isOwnReview = getReviewOwnerId(review) === currentUserId;
+    if (!isOwnReview || !review.createdAt) return false;
+    const createdAtMs = new Date(review.createdAt).getTime();
+    if (Number.isNaN(createdAtMs)) return false;
+    return Date.now() - createdAtMs <= USER_DELETE_REVIEW_WINDOW_MS;
+  };
+
+  const canUserEditReview = (review: Review) => canUserDeleteReview(review);
+
+  const handleStartEdit = (review: Review) => {
+    setEditingReviewId(review._id);
+    setForm({
+      rating: Number(review.rating) || 0,
+      valueForMoney: Number(review.valueForMoney) || 0,
+      durability: Number(review.durability) || 0,
+      deliverySpeed: Number(review.deliverySpeed) || 0,
+      comment: review.comment || '',
+      pros: review.pros || '',
+      cons: review.cons || '',
+    });
+    setShowModal(true);
+  };
+
+  const handleDeleteReview = async (reviewId: string) => {
+    const confirmed = window.confirm('Delete this review? This action cannot be undone.');
+    if (!confirmed) return;
+    try {
+      setDeletingReviewId(reviewId);
+      await reviewsApi.deleteMine(reviewId);
+      setReviews((prev) => prev.filter((r) => r._id !== reviewId));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete review';
+      window.alert(message);
+    } finally {
+      setDeletingReviewId(null);
+    }
+  };
 
   return (
     <section className="mb-12">
@@ -275,7 +347,15 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
           ) : reviewMode === 'delivered-only' && !eligibleOrderId ? (
             <p className="text-sm text-muted-foreground">You can submit a review after your order for this product is delivered.</p>
           ) : (
-            <Button type="button" onClick={() => setShowModal(true)} className="w-fit">
+            <Button
+              type="button"
+              onClick={() => {
+                setEditingReviewId(null);
+                setForm({ rating: 0, valueForMoney: 0, durability: 0, deliverySpeed: 0, comment: '', pros: '', cons: '' });
+                setShowModal(true);
+              }}
+              className="w-fit"
+            >
               Add review
             </Button>
           )}
@@ -358,6 +438,34 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
                       </time>
                     </div>
 
+                    {(canUserEditReview(review) || canUserDeleteReview(review)) && (
+                      <div className="flex justify-end -mt-2 gap-1">
+                        {canUserEditReview(review) && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2"
+                            onClick={() => handleStartEdit(review)}
+                          >
+                            <Pencil className="w-4 h-4 mr-1" />
+                            Edit
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteReview(review._id)}
+                          disabled={deletingReviewId === review._id}
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          {deletingReviewId === review._id ? 'Deleting…' : 'Delete'}
+                        </Button>
+                      </div>
+                    )}
+
                     {hasSub && (
                       <div className="rounded-lg bg-muted/40 px-3 py-2.5 space-y-1.5 text-xs">
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Also rated</p>
@@ -372,10 +480,10 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
                     {(review.pros || review.cons) && (
                       <div className="text-xs text-muted-foreground space-y-4 pt-3 border-t border-border mt-auto">
                         {review.pros ? (
-                          <ExpandableText text={review.pros} previewChars={PRO_CON_PREVIEW} label="Pros" />
+                          <ExpandableText text={review.pros} previewLines={2} label="Pros" />
                         ) : null}
                         {review.cons ? (
-                          <ExpandableText text={review.cons} previewChars={PRO_CON_PREVIEW} label="Cons" />
+                          <ExpandableText text={review.cons} previewLines={2} label="Cons" />
                         ) : null}
                       </div>
                     )}
@@ -427,9 +535,18 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
         )}
       </div>
 
-      <Dialog open={showModal} onOpenChange={setShowModal}>
+      <Dialog
+        open={showModal}
+        onOpenChange={(open) => {
+          setShowModal(open);
+          if (!open) {
+            setEditingReviewId(null);
+            setForm({ rating: 0, valueForMoney: 0, durability: 0, deliverySpeed: 0, comment: '', pros: '', cons: '' });
+          }
+        }}
+      >
         <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto">
-          <DialogTitle className="text-lg font-semibold">Submit a review</DialogTitle>
+          <DialogTitle className="text-lg font-semibold">{editingReviewId ? 'Edit your review' : 'Submit a review'}</DialogTitle>
           <div className="space-y-4">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Overall rating *</p>
@@ -461,15 +578,25 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Pros (optional)</p>
-                <Input value={form.pros} onChange={(e) => setForm({ ...form, pros: e.target.value })} />
+                <Textarea
+                  value={form.pros}
+                  onChange={(e) => setForm({ ...form, pros: e.target.value })}
+                  rows={4}
+                  placeholder="Write pros line by line (press Enter for next line)"
+                />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Cons (optional)</p>
-                <Input value={form.cons} onChange={(e) => setForm({ ...form, cons: e.target.value })} />
+                <Textarea
+                  value={form.cons}
+                  onChange={(e) => setForm({ ...form, cons: e.target.value })}
+                  rows={4}
+                  placeholder="Write cons line by line (press Enter for next line)"
+                />
               </div>
             </div>
             <Button type="button" onClick={handleSubmit} disabled={!canSubmit} className="w-full">
-              Submit review
+              {editingReviewId ? 'Update review' : 'Submit review'}
             </Button>
           </div>
         </DialogContent>
