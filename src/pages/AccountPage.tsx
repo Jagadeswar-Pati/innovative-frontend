@@ -69,7 +69,7 @@ const AccountPage = () => {
       const redirectPath = returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')
         ? returnTo
         : '/account';
-      navigate('/login?redirect=' + encodeURIComponent(redirectPath));
+      navigate('/login?redirect=' + encodeURIComponent(redirectPath), { replace: true });
     }
   }, [isAuthenticated, authLoading, navigate, returnTo]);
 

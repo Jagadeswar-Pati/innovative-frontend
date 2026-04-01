@@ -1,9 +1,13 @@
 /**
- * SEO utilities: base URL and document head updates for title, meta, OG, Twitter, canonical.
+ * SEO utilities: base URL, title/description builders, and legacy document head updates.
  * Brand: Innovative Hub | Domain: https://inovative-hub.com
+ *
+ * Primary route-level meta is rendered via react-helmet-async in <SEO /> (sync with React tree).
+ * For true server-rendered HTML (meta in first byte), add SSR/SSG (e.g. Vite SSR + renderToString,
+ * or prerender script) — see project docs.
  */
 
-import { BRAND_LOGO } from '@/constants/media';
+import { BRAND_LOGO_SQUARE } from '@/constants/media';
 
 export const SITE_NAME = 'Innovative Hub';
 /** Default first segment before " | Innovative Hub" for homepage-style titles */
@@ -11,7 +15,8 @@ const DEFAULT_PAGE_HEADLINE = 'Robotics, IoT & Embedded Systems Platform in Odis
 /** Brand-first meta for homepage and default. */
 export const DEFAULT_DESCRIPTION =
   "Innovative Hub is Odisha's leading platform for robotics, IoT & embedded systems. Components, kits & tutorials for engineering students and makers.";
-const DEFAULT_OG_IMAGE = BRAND_LOGO;
+/** Square brand image for default OG/Twitter when a page has no custom image */
+const DEFAULT_OG_IMAGE = BRAND_LOGO_SQUARE;
 
 const SUFFIX = ` | ${SITE_NAME}`;
 
@@ -32,7 +37,7 @@ export function getBaseUrl(): string {
 export function toAbsoluteUrl(pathOrUrl: string, baseUrl?: string): string {
   const base = baseUrl ?? getBaseUrl();
   const u = pathOrUrl.trim();
-  if (!u) return `${base}${BRAND_LOGO.startsWith('/') ? BRAND_LOGO : `/${BRAND_LOGO}`}`;
+  if (!u) return `${base}${DEFAULT_OG_IMAGE.startsWith('/') ? DEFAULT_OG_IMAGE : `/${DEFAULT_OG_IMAGE}`}`;
   if (/^https?:\/\//i.test(u)) return u;
   return `${base}${u.startsWith('/') ? u : `/${u}`}`;
 }
@@ -50,15 +55,76 @@ export function buildDocumentTitle(pageTitle?: string): string {
   return `${raw}${SUFFIX}`;
 }
 
-function normalizeOgType(ogType: string): string {
+export function normalizeOgType(ogType: string): string {
   const t = (ogType || 'website').toLowerCase();
   if (t === 'product') return 'product';
   return 'website';
 }
 
+/** Strip simple HTML for meta descriptions */
+export function stripHtmlForMeta(value: string): string {
+  return value
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Product listing / PDP title segment (before " | Innovative Hub").
+ * Example: "Buy Arduino Uno in India | Microcontroller Boards"
+ */
+export function buildProductSeoTitle(productName: string, category: string): string {
+  const cat = (category || 'Electronics components').trim();
+  const name = productName.trim();
+  return `Buy ${name} in India | ${cat}`;
+}
+
+export function buildProductMetaDescription(input: {
+  name: string;
+  shortDescription?: string;
+  longDescription?: string;
+  category?: string;
+}): string {
+  const fromHtml = stripHtmlForMeta(input.shortDescription || input.longDescription || '');
+  const cat = (input.category || '').trim();
+  let text =
+    fromHtml ||
+    `Shop ${input.name} online at Innovative Hub${cat ? ` — ${cat}` : ''}. Fast delivery across India. Authentic components for robotics, IoT & embedded projects.`;
+  if (text.length > 160) text = `${text.slice(0, 157).trim()}…`;
+  return text;
+}
+
+export function buildProductKeywords(input: {
+  name: string;
+  category: string;
+  subcategory?: string;
+  sku?: string;
+}): string {
+  const parts = [
+    input.name,
+    input.category,
+    input.subcategory,
+    input.sku,
+    'buy online India',
+    'electronics components',
+    'robotics parts',
+    'IoT modules',
+    SITE_NAME,
+    'Bhubaneswar',
+    'Odisha',
+  ]
+    .map((p) => (p != null ? String(p).trim() : ''))
+    .filter(Boolean);
+  return Array.from(new Set(parts)).slice(0, 24).join(', ');
+}
+
 export interface SEOOptions {
   title?: string;
   description?: string;
+  /** Comma-separated keywords (legacy; minor engines may use). */
+  keywords?: string;
   image?: string;
   /** Path (e.g. /about). Canonical and og:url will be baseUrl + path (+ query if present) */
   path?: string;
@@ -88,8 +154,7 @@ const INDEX_ROBOTS =
   'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
 
 /**
- * Update document head: title, description, og:*, twitter:*, canonical.
- * Call from a useEffect in each page component (via <SEO />).
+ * Legacy imperative head update (e.g. non-React scripts). Prefer <SEO /> + react-helmet-async.
  */
 export function updateDocumentHead(options: SEOOptions): void {
   const {
@@ -102,11 +167,7 @@ export function updateDocumentHead(options: SEOOptions): void {
   } = options;
 
   const baseUrl = getBaseUrl();
-  const pathPart = path
-    ? path.startsWith('/')
-      ? path
-      : `/${path}`
-    : '';
+  const pathPart = path ? (path.startsWith('/') ? path : `/${path}`) : '';
   const canonicalUrl = pathPart ? `${baseUrl}${pathPart}` : baseUrl;
   const imageUrl = toAbsoluteUrl(image, baseUrl);
   const fullTitle = buildDocumentTitle(title);

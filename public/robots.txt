@@ -1,4 +1,16 @@
 User-agent: *
 Allow: /
 
+# Private / transactional (avoid indexing thin or sensitive URLs)
+Disallow: /account
+Disallow: /cart
+Disallow: /checkout
+Disallow: /login
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /wishlist
+Disallow: /order-success
+Disallow: /order/
+
 Sitemap: https://inovative-hub.com/sitemap.xml

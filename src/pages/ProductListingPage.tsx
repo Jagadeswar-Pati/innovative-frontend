@@ -4,6 +4,7 @@ import { ChevronDown, Grid3X3, List, Loader2 } from 'lucide-react';
 import EShopLayout from '../components/EShopLayout';
 import ProductCard from '../components/ProductCard';
 import SEO from '@/components/SEO';
+import { SITE_NAME } from '@/lib/seo';
 import { ProductSkeletonGrid } from '../components/ProductSkeleton';
 import { productsApi } from '../services/api';
 import { useCategories } from '../hooks/useCategories';
@@ -163,22 +164,50 @@ const ProductListingPage = ({ useMainLayout = false }: ProductListingPageProps) 
     return `Browse ${currentCategory.toLowerCase()} at Innovative Hub — quality electronic components, microcontrollers, sensors, and robotics parts with fast delivery across India.`;
   }, [hasSearch, currentCategory]);
 
+  const listingKeywords = useMemo(() => {
+    if (hasSearch) {
+      const q = searchParam.trim().slice(0, 80);
+      return q
+        ? `${q}, search, electronics, robotics, ${SITE_NAME}, India`
+        : `electronics, robotics, IoT, ${SITE_NAME}`;
+    }
+    return `${currentCategory}, electronic components, buy online India, robotics parts, IoT modules, ${SITE_NAME}, Odisha`;
+  }, [hasSearch, searchParam, currentCategory]);
+
   const content = (
     <>
       <SEO
         title={listingTitle}
         description={listingDescription}
+        keywords={listingKeywords}
         path={listPath}
         noIndex={hasSearch}
       />
       <div className="container mx-auto px-2 sm:px-4 pb-8 sm:pb-12">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6 overflow-x-auto">
-          <Link to="/" className="hover:text-foreground whitespace-nowrap">Home</Link>
-          <span>/</span>
-          <Link to="/eshop" className="hover:text-foreground whitespace-nowrap">E-Shop</Link>
-          <span>/</span>
-          <span className="text-foreground whitespace-nowrap">{currentCategory}</span>
+        {/* Breadcrumb — touch-friendly links on mobile */}
+        <nav
+          className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm sm:text-sm text-muted-foreground mb-4 sm:mb-6"
+          aria-label="Breadcrumb"
+        >
+          <Link
+            to="/"
+            className="hover:text-foreground whitespace-nowrap min-h-[44px] inline-flex items-center px-1 -mx-1 rounded-md touch-manipulation"
+          >
+            Home
+          </Link>
+          <span className="text-muted-foreground/80" aria-hidden>
+            /
+          </span>
+          <Link
+            to="/eshop"
+            className="hover:text-foreground whitespace-nowrap min-h-[44px] inline-flex items-center px-1 -mx-1 rounded-md touch-manipulation"
+          >
+            E-Shop
+          </Link>
+          <span className="text-muted-foreground/80" aria-hidden>
+            /
+          </span>
+          <span className="text-foreground font-medium min-h-[44px] inline-flex items-center">{currentCategory}</span>
         </nav>
 
         {/* Header */}

@@ -42,7 +42,7 @@ const EShopHeader = ({ searchQuery = '', onSearchChange }: EShopHeaderProps) => 
 
               {/* Logo + brand text (text always to the right of logo; truncates on narrow phones) */}
               <Link
-                to="/"
+                to="/eshop"
                 className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 overflow-hidden"
               >
                 <span className="shrink-0 flex items-center">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { Eye, EyeOff, Mail, Lock, User, Phone } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import SEO from '@/components/SEO';
 import { Button } from '@/components/ui/button';
@@ -85,7 +85,7 @@ const LoginPage: React.FC = () => {
   // Redirect if already authenticated (back to the page they came from)
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
-      navigate(getRedirectPath(searchParams));
+      navigate(getRedirectPath(searchParams), { replace: true });
     }
   }, [isAuthenticated, authLoading, navigate, searchParams]);
 
@@ -101,7 +101,7 @@ const LoginPage: React.FC = () => {
       if (isLogin) {
         await login(formData.email, formData.password);
         toast({ title: 'Welcome back!', description: 'You have logged in successfully.' });
-        navigate(getRedirectPath(searchParams));
+        navigate(getRedirectPath(searchParams), { replace: true });
       } else {
         const m = normalizeIndianMobile10(formData.mobile);
         if (formData.mobile.trim()) {
@@ -189,7 +189,7 @@ const LoginPage: React.FC = () => {
             try {
               await googleLogin(res.credential);
               toast({ title: 'Welcome!', description: 'Signed in with Google successfully.' });
-              navigate(getRedirectPath(searchParams));
+              navigate(getRedirectPath(searchParams), { replace: true });
             } catch (error) {
               toast({
                 title: 'Error',
@@ -233,9 +233,29 @@ const LoginPage: React.FC = () => {
     <div className="min-h-screen min-h-[100dvh] bg-background flex items-center justify-center p-4 sm:p-6">
       <SEO title="Login" description="Sign in to your Innovative Hub account." path="/login" noIndex />
       <div className="w-full max-w-md">
-        {/* Logo */}
+        {/* Mobile-friendly back + shop escape (browser Back works after replace-safe redirects from Account/Checkout) */}
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <Button
+            type="button"
+            variant="ghost"
+            className="gap-2 min-h-[44px] pl-2 pr-3 -ml-2 touch-manipulation shrink-0"
+            onClick={() => navigate(-1)}
+            aria-label="Go back to previous page"
+          >
+            <ArrowLeft className="w-5 h-5 shrink-0" />
+            <span className="text-sm font-medium">Back</span>
+          </Button>
+          <Link
+            to="/eshop"
+            className="text-sm font-semibold text-primary min-h-[44px] inline-flex items-center touch-manipulation px-2 text-right truncate max-w-[55%]"
+          >
+            Continue shopping
+          </Link>
+        </div>
+
+        {/* Logo — shop home so users stay in the store flow */}
         <div className="text-center mb-6 sm:mb-8">
-          <Link to="/" className="mb-4 mx-auto block w-fit">
+          <Link to="/eshop" className="mb-4 mx-auto block w-fit">
             <LogoMark variant="auth" />
           </Link>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">
@@ -395,10 +415,12 @@ const LoginPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Back to Home */}
-        <p className="text-center mt-6">
-          <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
-            ← Back to Home
+        <p className="text-center mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
+          <Link to="/" className="hover:text-foreground min-h-[44px] inline-flex items-center touch-manipulation">
+            Marketing site
+          </Link>
+          <Link to="/eshop" className="hover:text-foreground min-h-[44px] inline-flex items-center touch-manipulation">
+            E-Shop home
           </Link>
         </p>
       </div>

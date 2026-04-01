@@ -16,6 +16,12 @@ import { formatPrice } from '@/utils/price';
 import { isCustom3dProduct, CONTACT_US_3D_SKU } from '@/utils/productHelpers';
 import { BRAND_LOGO, PLACEHOLDER_IMAGE } from '@/constants/media';
 import { clearProductJsonLd, setProductJsonLd } from '@/lib/productJsonLd';
+import { setBreadcrumbJsonLd, clearBreadcrumbJsonLd } from '@/lib/breadcrumbJsonLd';
+import {
+  buildProductMetaDescription,
+  buildProductKeywords,
+  buildProductSeoTitle,
+} from '@/lib/seo';
 
 const ProductDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -92,6 +98,7 @@ const ProductDetailPage = () => {
   useEffect(() => {
     if (!product) {
       clearProductJsonLd();
+      clearBreadcrumbJsonLd();
       return;
     }
     const desc =
@@ -105,8 +112,22 @@ const ProductDetailPage = () => {
       price: product.price,
       stock: product.stock,
       path: `/product/${product._id}`,
+      sku: product.sku,
+      category: product.category,
     });
-    return () => clearProductJsonLd();
+    setBreadcrumbJsonLd([
+      { name: 'Home', path: '/' },
+      { name: 'E-Shop', path: '/eshop' },
+      {
+        name: product.category,
+        path: `/eshop/products?category=${slugify(product.category)}`,
+      },
+      { name: product.name, path: `/product/${product._id}` },
+    ]);
+    return () => {
+      clearProductJsonLd();
+      clearBreadcrumbJsonLd();
+    };
   }, [product]);
 
   useEffect(() => {
@@ -260,24 +281,59 @@ const ProductDetailPage = () => {
   return (
     <EShopLayout searchQuery={searchQuery} onSearchChange={handleSearchChange}>
       <SEO
-        title={product.name}
-        description={product.shortDescription?.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160) || `Buy ${product.name} at Innovative Hub. ${product.category}.`}
+        title={buildProductSeoTitle(product.name, product.category)}
+        description={buildProductMetaDescription({
+          name: product.name,
+          shortDescription: product.shortDescription,
+          longDescription: product.longDescription,
+          category: product.category,
+        })}
+        keywords={buildProductKeywords({
+          name: product.name,
+          category: product.category,
+          subcategory: product.subcategory,
+          sku: product.sku,
+        })}
         image={productImage.startsWith('http') ? productImage : productImage}
         path={`/product/${product._id}`}
         ogType="product"
       />
       <div className="container mx-auto px-3 sm:px-4 pb-8 sm:pb-12 max-w-full">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6 overflow-x-auto whitespace-nowrap">
-          <Link to="/" className="hover:text-foreground">Home</Link>
-          <span>/</span>
-          <Link to="/eshop" className="hover:text-foreground">E-Shop</Link>
-          <span>/</span>
-          <Link to={`/eshop/products?category=${slugify(product.category)}`} className="hover:text-foreground">
+        {/* Breadcrumb — touch-friendly on mobile */}
+        <nav
+          className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted-foreground mb-4 sm:mb-6"
+          aria-label="Breadcrumb"
+        >
+          <Link
+            to="/"
+            className="hover:text-foreground min-h-[44px] inline-flex items-center px-1 -mx-1 rounded-md touch-manipulation shrink-0"
+          >
+            Home
+          </Link>
+          <span className="text-muted-foreground/80 shrink-0" aria-hidden>
+            /
+          </span>
+          <Link
+            to="/eshop"
+            className="hover:text-foreground min-h-[44px] inline-flex items-center px-1 -mx-1 rounded-md touch-manipulation shrink-0"
+          >
+            E-Shop
+          </Link>
+          <span className="text-muted-foreground/80 shrink-0" aria-hidden>
+            /
+          </span>
+          <Link
+            to={`/eshop/products?category=${slugify(product.category)}`}
+            className="hover:text-foreground min-h-[44px] inline-flex items-center px-1 -mx-1 rounded-md touch-manipulation max-w-[min(100%,12rem)] truncate"
+          >
             {product.category}
           </Link>
-          <span>/</span>
-          <span className="text-foreground truncate max-w-[140px] sm:max-w-[200px]">{product.name}</span>
+          <span className="text-muted-foreground/80 shrink-0" aria-hidden>
+            /
+          </span>
+          <span className="text-foreground font-medium min-h-[44px] inline-flex items-center max-w-[min(100%,10rem)] sm:max-w-[14rem] truncate">
+            {product.name}
+          </span>
         </nav>
 
         {/* Product Section */}

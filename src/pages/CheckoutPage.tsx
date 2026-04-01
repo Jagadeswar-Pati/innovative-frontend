@@ -234,7 +234,7 @@ const CheckoutPage = () => {
   const handlePlaceOrder = async () => {
     if (paymentInProgressRef.current) return;
     if (!user) {
-      navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`);
+      navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`, { replace: true });
       return;
     }
     const address = addresses.find((a) => a._id === selectedAddress);

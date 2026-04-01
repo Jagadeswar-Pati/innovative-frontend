@@ -75,8 +75,9 @@ function escapeXml(s) {
     .replace(/"/g, '&quot;');
 }
 
-function urlEl(loc, changefreq, priority) {
-  return `  <url><loc>${escapeXml(loc)}</loc><changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
+function urlEl(loc, changefreq, priority, lastmod) {
+  const lm = lastmod ? `<lastmod>${escapeXml(lastmod)}</lastmod>` : '';
+  return `  <url><loc>${escapeXml(loc)}</loc>${lm}<changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
 }
 
 async function fetchAllProductIds(apiBase) {
@@ -105,22 +106,23 @@ async function main() {
   const env = loadEnvFile();
   const site = (env.VITE_APP_URL || FALLBACK_SITE).replace(/\/$/, '');
   const api = (env.VITE_API_URL || env.SITEMAP_API_URL || FALLBACK_API).replace(/\/$/, '');
+  const lastmod = new Date().toISOString().slice(0, 10);
 
   const lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'];
 
   for (const [p, freq, pri] of STATIC_ENTRIES) {
-    lines.push(urlEl(`${site}${p}`, freq, pri));
+    lines.push(urlEl(`${site}${p}`, freq, pri, lastmod));
   }
 
   for (const slug of CATEGORY_SLUGS) {
     const loc = `${site}/eshop/products?category=${encodeURIComponent(slug)}`;
-    lines.push(urlEl(loc, 'daily', '0.8'));
+    lines.push(urlEl(loc, 'daily', '0.8', lastmod));
   }
 
   try {
     const productIds = await fetchAllProductIds(api);
     for (const id of productIds) {
-      lines.push(urlEl(`${site}/product/${encodeURIComponent(id)}`, 'weekly', '0.75'));
+      lines.push(urlEl(`${site}/product/${encodeURIComponent(id)}`, 'weekly', '0.75', lastmod));
     }
     console.log('Sitemap: added', productIds.length, 'product URLs from', api);
   } catch (e) {
@@ -133,6 +135,18 @@ async function main() {
 
   const robots = `User-agent: *
 Allow: /
+
+# Private / transactional (avoid indexing thin or sensitive URLs)
+Disallow: /account
+Disallow: /cart
+Disallow: /checkout
+Disallow: /login
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /wishlist
+Disallow: /order-success
+Disallow: /order/
 
 Sitemap: ${site}/sitemap.xml
 `;

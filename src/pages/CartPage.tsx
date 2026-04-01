@@ -18,7 +18,7 @@ const CartPage = () => {
   if (items.length === 0) {
     return (
       <EShopLayout>
-        <SEO title="Cart" description="Your shopping cart at Innovative Hub." path="/cart" />
+        <SEO title="Cart" description="Your shopping cart at Innovative Hub." path="/cart" noIndex />
         <div className="container mx-auto px-4 py-12 text-center">
           <ShoppingBag className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground mb-2">Your cart is empty</h1>
@@ -35,7 +35,7 @@ const CartPage = () => {
 
   return (
     <EShopLayout>
-      <SEO title="Shopping Cart" description="Review and manage your cart at Innovative Hub." path="/cart" />
+      <SEO title="Shopping Cart" description="Review and manage your cart at Innovative Hub." path="/cart" noIndex />
       <div className="container mx-auto px-3 sm:px-4 pb-8 sm:pb-12 max-w-full">
         <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-4 sm:mb-8">Shopping Cart ({totalItems} items)</h1>
         

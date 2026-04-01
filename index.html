@@ -9,15 +9,15 @@
     <meta name="author" content="Innovative Hub" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
 
-    <!-- Favicons: bump ?v= when replacing assets (browsers cache favicons very aggressively). -->
-    <link rel="icon" type="image/png" sizes="32x32" href="/assets/logo-128.png?v=ih3" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/assets/logo-128.png?v=ih3" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/assets/logo-512.png?v=ih3" />
-    <link rel="icon" type="image/png" href="/assets/logo.png?v=ih3" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/assets/logo-512.png?v=ih3" />
-    <!-- Browsers still request /favicon.ico by default; keep file in public/ in sync with logo + version query. -->
-    <link rel="shortcut icon" href="/favicon.ico?v=ih3" type="image/x-icon" />
-    <link rel="preload" href="/assets/logo.png" as="image" fetchpriority="high" />
+    <!-- Favicons: keep in sync with src/constants/media.ts BRAND_ASSET_VERSION -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/logo-128.png?v=ih4" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/logo-128.png?v=ih4" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/assets/logo-512.png?v=ih4" />
+    <link rel="icon" type="image/png" href="/assets/logo.png?v=ih4" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/logo-512.png?v=ih4" />
+    <!-- Browsers still request /favicon.ico by default — replace public/favicon.ico when the logo changes. -->
+    <link rel="shortcut icon" href="/favicon.ico?v=ih4" type="image/x-icon" />
+    <link rel="preload" href="/assets/logo.png?v=ih4" as="image" fetchpriority="high" />
     <style>body{margin:0;min-height:100dvh;background:hsl(210 20% 98%);color:hsl(215 25% 20%);-webkit-font-smoothing:antialiased}#root{min-height:100dvh}</style>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -30,7 +30,9 @@
     <meta property="og:title" content="Robotics, IoT & Embedded Systems Platform in Odisha | Innovative Hub" />
     <meta property="og:description" content="Innovative Hub is Odisha's leading platform for robotics, IoT & embedded systems. Components, kits and tutorials for engineering students and makers." />
     <meta property="og:url" content="https://inovative-hub.com" />
-    <meta property="og:image" content="https://inovative-hub.com/assets/logo.png" />
+    <meta property="og:image" content="https://inovative-hub.com/assets/logo-512.png?v=ih4" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
     <meta property="og:image:alt" content="Innovative Hub logo" />
     <meta property="og:locale" content="en_IN" />
 
@@ -38,7 +40,7 @@
     <meta name="twitter:site" content="@InnovativeHub" />
     <meta name="twitter:title" content="Robotics, IoT & Embedded Systems Platform in Odisha | Innovative Hub" />
     <meta name="twitter:description" content="Innovative Hub is Odisha's leading platform for robotics, IoT & embedded systems. Components, kits and tutorials for engineering students and makers." />
-    <meta name="twitter:image" content="https://inovative-hub.com/assets/logo.png" />
+    <meta name="twitter:image" content="https://inovative-hub.com/assets/logo-512.png?v=ih4" />
     <meta name="twitter:image:alt" content="Innovative Hub logo" />
 
     <!-- JSON-LD: Organization + WebSite -->
@@ -51,7 +53,12 @@
           "@id": "https://inovative-hub.com/#organization",
           "name": "Innovative Hub",
           "url": "https://inovative-hub.com",
-          "logo": "https://inovative-hub.com/assets/logo.png",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://inovative-hub.com/assets/logo-512.png?v=ih4",
+            "width": 512,
+            "height": 512
+          },
           "description": "Innovative Hub is Odisha's leading platform for robotics, IoT and embedded systems.",
           "sameAs": [
             "https://www.instagram.com/innovativehub",
