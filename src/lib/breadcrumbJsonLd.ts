@@ -1,9 +1,7 @@
 /**
- * BreadcrumbList JSON-LD for product and listing pages (schema.org).
+ * BreadcrumbList JSON-LD (schema.org) for product and listing pages.
  */
 import { getBaseUrl } from '@/lib/seo';
-
-const SCRIPT_ID = 'ih-breadcrumb-jsonld';
 
 function toLoc(path: string, baseUrl: string): string {
   const p = path.startsWith('/') ? path : `/${path}`;
@@ -16,10 +14,10 @@ export interface BreadcrumbItem {
   path: string;
 }
 
-export function setBreadcrumbJsonLd(items: BreadcrumbItem[]): void {
+/** BreadcrumbList node for use inside @graph (no @context). */
+export function buildBreadcrumbListNode(items: BreadcrumbItem[]): Record<string, unknown> {
   if (!items.length) {
-    clearBreadcrumbJsonLd();
-    return;
+    return { '@type': 'BreadcrumbList', itemListElement: [] };
   }
   const baseUrl = getBaseUrl();
   const itemListElement = items.map((item, index) => ({
@@ -29,22 +27,15 @@ export function setBreadcrumbJsonLd(items: BreadcrumbItem[]): void {
     item: toLoc(item.path, baseUrl),
   }));
 
-  const schema = {
-    '@context': 'https://schema.org',
+  return {
     '@type': 'BreadcrumbList',
     itemListElement,
   };
-
-  let el = document.getElementById(SCRIPT_ID);
-  if (!el) {
-    el = document.createElement('script');
-    el.type = 'application/ld+json';
-    el.id = SCRIPT_ID;
-    document.head.appendChild(el);
-  }
-  el.textContent = JSON.stringify(schema);
 }
 
-export function clearBreadcrumbJsonLd(): void {
-  document.getElementById(SCRIPT_ID)?.remove();
+export function buildBreadcrumbJsonLdString(items: BreadcrumbItem[]): string {
+  return JSON.stringify({
+    '@context': 'https://schema.org',
+    ...buildBreadcrumbListNode(items),
+  });
 }

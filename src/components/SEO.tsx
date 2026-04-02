@@ -28,6 +28,7 @@ export default function SEO(props: SEOProps) {
     path = '',
     ogType = 'website',
     noIndex = false,
+    jsonLd,
   } = props;
 
   const baseUrl = getBaseUrl();
@@ -62,6 +63,15 @@ export default function SEO(props: SEOProps) {
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={imageUrl} />
       <meta name="twitter:image:alt" content={fullTitle} />
+
+      {jsonLd?.map((raw, i) => (
+        <script
+          // eslint-disable-next-line react/no-danger
+          key={`jsonld-${i}`}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: raw }}
+        />
+      ))}
     </Helmet>
   );
 }

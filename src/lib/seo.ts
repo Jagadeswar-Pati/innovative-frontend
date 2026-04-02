@@ -132,6 +132,11 @@ export interface SEOOptions {
   ogType?: string;
   /** If true, set robots noindex,nofollow */
   noIndex?: boolean;
+  /**
+   * JSON-LD strings (e.g. JSON.stringify output), injected as script[type="application/ld+json"].
+   * Prefer a single @graph payload per page when combining Product + BreadcrumbList.
+   */
+  jsonLd?: string[];
 }
 
 function ensureMeta(nameOrProperty: string, isProperty: boolean): HTMLMetaElement {

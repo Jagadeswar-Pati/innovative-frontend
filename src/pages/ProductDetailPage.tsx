@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Minus, Plus, ShoppingCart, Heart, Share2, Pl
 import EShopLayout from '../components/EShopLayout';
 import ProductCard from '../components/ProductCard';
 import SEO from '@/components/SEO';
-import { productsApi } from '../services/api';
+import { productsApi, reviewsApi, type Review } from '../services/api';
 import type { Product } from '../utils/products';
 import { slugify } from '../utils/products';
 import { useCart } from '../context/CartContext';
@@ -15,8 +15,11 @@ import ProductReviews from '@/components/ProductReviews';
 import { formatPrice } from '@/utils/price';
 import { isCustom3dProduct, CONTACT_US_3D_SKU } from '@/utils/productHelpers';
 import { BRAND_LOGO, PLACEHOLDER_IMAGE } from '@/constants/media';
-import { clearProductJsonLd, setProductJsonLd } from '@/lib/productJsonLd';
-import { setBreadcrumbJsonLd, clearBreadcrumbJsonLd } from '@/lib/breadcrumbJsonLd';
+import {
+  buildProductDetailJsonLdGraphString,
+  filterApprovedReviews,
+  mapReviewsForProductJsonLd,
+} from '@/lib/productJsonLd';
 import {
   buildProductMetaDescription,
   buildProductKeywords,
@@ -29,6 +32,7 @@ const ProductDetailPage = () => {
   const [product, setProduct] = useState<Product | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [recentProducts, setRecentProducts] = useState<Product[]>([]);
+  const [publicReviews, setPublicReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -42,25 +46,44 @@ const ProductDetailPage = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const loadProduct = async () => {
-      if (!id) return;
-      window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-      setIsLoading(true);
+    if (!id) {
+      setIsLoading(false);
+      setProduct(null);
+      setPublicReviews([]);
+      return;
+    }
+    let cancelled = false;
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+    setIsLoading(true);
+    setProduct(null);
+    setPublicReviews([]);
+
+    const load = async () => {
       try {
-        const res = await productsApi.getById(id);
-        if (res.success) {
-          setProduct(res.data);
+        const [prodRes, revRes] = await Promise.all([
+          productsApi.getById(id),
+          reviewsApi.getByProduct(id).catch(() => null),
+        ]);
+        if (cancelled) return;
+        if (prodRes.success && prodRes.data) {
+          setProduct(prodRes.data);
         } else {
           setProduct(null);
         }
+        const rawList = revRes && typeof revRes === 'object' && 'data' in revRes ? (revRes as { data?: Review[] }).data : undefined;
+        const list = Array.isArray(rawList) ? rawList : [];
+        setPublicReviews(filterApprovedReviews(list));
       } catch (error) {
         console.error('Failed to load product:', error);
-        setProduct(null);
+        if (!cancelled) setProduct(null);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
-    loadProduct();
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   useEffect(() => {
@@ -96,41 +119,6 @@ const ProductDetailPage = () => {
   }, [mediaItems.length, currentImageIndex]);
 
   useEffect(() => {
-    if (!product) {
-      clearProductJsonLd();
-      clearBreadcrumbJsonLd();
-      return;
-    }
-    const desc =
-      product.shortDescription?.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() ||
-      product.longDescription?.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() ||
-      '';
-    setProductJsonLd({
-      name: product.name,
-      description: desc || product.name,
-      image: product.images?.length ? product.images : [BRAND_LOGO],
-      price: product.price,
-      stock: product.stock,
-      path: `/product/${product._id}`,
-      sku: product.sku,
-      category: product.category,
-    });
-    setBreadcrumbJsonLd([
-      { name: 'Home', path: '/' },
-      { name: 'E-Shop', path: '/eshop' },
-      {
-        name: product.category,
-        path: `/eshop/products?category=${slugify(product.category)}`,
-      },
-      { name: product.name, path: `/product/${product._id}` },
-    ]);
-    return () => {
-      clearProductJsonLd();
-      clearBreadcrumbJsonLd();
-    };
-  }, [product]);
-
-  useEffect(() => {
     const current = mediaItems[currentImageIndex];
     const isVideo = current?.type === 'video';
     if (!product || mediaItems.length < 2 || isImagePaused || isVideo) return;
@@ -140,15 +128,97 @@ const ProductDetailPage = () => {
     return () => window.clearInterval(interval);
   }, [product, mediaItems, mediaItems.length, currentImageIndex, isImagePaused]);
 
+  const productJsonLdGraph = useMemo(() => {
+    if (!product) return null;
+    const desc =
+      product.shortDescription?.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() ||
+      product.longDescription?.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() ||
+      '';
+    const fromReviews = mapReviewsForProductJsonLd(publicReviews);
+    return buildProductDetailJsonLdGraphString(
+      {
+        name: product.name,
+        description: desc || product.name,
+        image: product.images?.length ? product.images : [BRAND_LOGO],
+        price: product.price,
+        stock: product.stock,
+        path: `/product/${product._id}`,
+        sku: product.sku,
+        productId: product._id,
+        category: product.category,
+        ...fromReviews,
+      },
+      [
+        { name: 'Home', path: '/' },
+        { name: 'E-Shop', path: '/eshop' },
+        {
+          name: product.category,
+          path: `/eshop/products?category=${slugify(product.category)}`,
+        },
+        { name: product.name, path: `/product/${product._id}` },
+      ]
+    );
+  }, [product, publicReviews]);
+
   if (!product && !isLoading) {
     return (
       <EShopLayout>
         <SEO title="Product not found" description="This product is unavailable or may have been removed." path="/eshop/products" noIndex />
-        <div className="container mx-auto px-4 py-12 text-center">
+        <div className="container mx-auto px-4 py-12 text-center max-w-xl">
           <h1 className="text-2xl font-bold text-foreground mb-4">Product Not Found</h1>
-          <Link to="/eshop" className="text-primary hover:underline">
-            Back to E-Shop
+          <p className="text-muted-foreground text-sm sm:text-base leading-relaxed mb-6">
+            The item may have been removed or the link is outdated. Browse our E-Shop for microcontrollers, sensors, motors,
+            power supplies and IoT boards — we ship across India from Bhubaneswar, Odisha.
+          </p>
+          <Link to="/eshop/products" className="text-primary hover:underline font-medium inline-block min-h-[44px]">
+            View all products
           </Link>
+        </div>
+      </EShopLayout>
+    );
+  }
+
+  if (!product && isLoading && id) {
+    return (
+      <EShopLayout>
+        <SEO
+          title="Product details"
+          description="Browse specifications and buy electronics, robotics and IoT parts online at Innovative Hub — trusted by students and makers in Odisha and across India."
+          path={`/product/${id}`}
+        />
+        <div className="container mx-auto px-3 sm:px-4 pb-8 max-w-full">
+          <nav
+            className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted-foreground mb-6"
+            aria-label="Breadcrumb"
+          >
+            <Link to="/" className="hover:text-foreground min-h-[44px] inline-flex items-center px-1 -mx-1 rounded-md">
+              Home
+            </Link>
+            <span className="text-muted-foreground/80" aria-hidden>
+              /
+            </span>
+            <Link to="/eshop" className="hover:text-foreground min-h-[44px] inline-flex items-center px-1 -mx-1 rounded-md">
+              E-Shop
+            </Link>
+            <span className="text-muted-foreground/80" aria-hidden>
+              /
+            </span>
+            <span className="text-foreground font-medium min-h-[44px] inline-flex items-center">Product</span>
+          </nav>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-3">Product details</h1>
+          <p className="text-muted-foreground text-sm sm:text-base max-w-2xl mb-8 leading-relaxed">
+            Loading this product from Innovative Hub. You will see images, price, stock, technical description and verified
+            buyer reviews. We stock Arduino-compatible boards, Raspberry Pi accessories, sensors, motor drivers, batteries and
+            wireless modules for robotics and embedded projects.
+          </p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" aria-busy="true">
+            <div className="aspect-square rounded-xl bg-muted/50 animate-pulse min-h-[200px]" />
+            <div className="space-y-4">
+              <div className="h-8 bg-muted/60 rounded animate-pulse w-3/4 max-w-md" />
+              <div className="h-4 bg-muted/50 rounded animate-pulse max-w-sm" />
+              <div className="h-10 bg-muted/50 rounded animate-pulse w-1/2 max-w-xs" />
+            </div>
+          </div>
         </div>
       </EShopLayout>
     );
@@ -297,6 +367,7 @@ const ProductDetailPage = () => {
         image={productImage.startsWith('http') ? productImage : productImage}
         path={`/product/${product._id}`}
         ogType="product"
+        jsonLd={productJsonLdGraph ? [productJsonLdGraph] : undefined}
       />
       <div className="container mx-auto px-3 sm:px-4 pb-8 sm:pb-12 max-w-full">
         {/* Breadcrumb — touch-friendly on mobile */}
@@ -682,7 +753,10 @@ const ProductDetailPage = () => {
           <section className="mb-12">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-foreground">Related Products</h2>
-              <Link to={`/eshop/products?category=${encodeURIComponent(product.category.toLowerCase())}`} className="text-sm text-primary hover:underline">
+              <Link
+                to={`/eshop/products?category=${encodeURIComponent(slugify(product.category))}`}
+                className="text-sm text-primary hover:underline"
+              >
                 VIEW SIMILAR
               </Link>
             </div>

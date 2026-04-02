@@ -54,17 +54,18 @@ const CATEGORY_SLUGS = [
   'miscellaneous',
 ];
 
+/** User-requested defaults: changefreq weekly, priority 0.8 (homepage 1.0). */
 const STATIC_ENTRIES = [
   ['/', 'weekly', '1.0'],
-  ['/eshop', 'weekly', '0.9'],
-  ['/eshop/products', 'daily', '0.9'],
-  ['/about', 'monthly', '0.85'],
-  ['/contact', 'monthly', '0.8'],
-  ['/faq', 'monthly', '0.8'],
-  ['/order-tracking', 'monthly', '0.6'],
-  ['/robotics-courses', 'monthly', '0.5'],
-  ['/project-kits', 'monthly', '0.5'],
-  ['/resources', 'monthly', '0.5'],
+  ['/eshop', 'weekly', '0.8'],
+  ['/eshop/products', 'weekly', '0.8'],
+  ['/about', 'weekly', '0.8'],
+  ['/contact', 'weekly', '0.8'],
+  ['/faq', 'weekly', '0.8'],
+  ['/order-tracking', 'weekly', '0.8'],
+  ['/robotics-courses', 'weekly', '0.8'],
+  ['/project-kits', 'weekly', '0.8'],
+  ['/resources', 'weekly', '0.8'],
 ];
 
 function escapeXml(s) {
@@ -116,13 +117,13 @@ async function main() {
 
   for (const slug of CATEGORY_SLUGS) {
     const loc = `${site}/eshop/products?category=${encodeURIComponent(slug)}`;
-    lines.push(urlEl(loc, 'daily', '0.8', lastmod));
+    lines.push(urlEl(loc, 'weekly', '0.8', lastmod));
   }
 
   try {
     const productIds = await fetchAllProductIds(api);
     for (const id of productIds) {
-      lines.push(urlEl(`${site}/product/${encodeURIComponent(id)}`, 'weekly', '0.75', lastmod));
+      lines.push(urlEl(`${site}/product/${encodeURIComponent(id)}`, 'weekly', '0.8', lastmod));
     }
     console.log('Sitemap: added', productIds.length, 'product URLs from', api);
   } catch (e) {
@@ -136,17 +137,8 @@ async function main() {
   const robots = `User-agent: *
 Allow: /
 
-# Private / transactional (avoid indexing thin or sensitive URLs)
-Disallow: /account
-Disallow: /cart
-Disallow: /checkout
-Disallow: /login
-Disallow: /forgot-password
-Disallow: /reset-password
-Disallow: /verify-email
-Disallow: /wishlist
-Disallow: /order-success
-Disallow: /order/
+Disallow: /admin
+Disallow: /private
 
 Sitemap: ${site}/sitemap.xml
 `;

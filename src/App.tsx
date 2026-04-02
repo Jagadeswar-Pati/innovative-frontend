@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,7 +11,6 @@ import { WishlistProvider } from "./context/WishlistContext";
 import { AuthProvider } from "./context/AuthContext";
 
 // Frontend Components (Layout + above-the-fold kept eager for fast FCP)
-import LoadingScreen from "./components/LoadingScreen";
 import Layout from "./components/Layout";
 import ScrollToTop from "./components/ScrollToTop";
 import HomePage from "./pages/HomePage";
@@ -39,64 +38,59 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 
 function PageFallback() {
   return (
-    <div className="min-h-[40vh] flex items-center justify-center" aria-hidden="true">
-      <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+    <div className="min-h-[50vh] flex flex-col items-center justify-center gap-3 px-4" role="status" aria-live="polite">
+      <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" aria-hidden />
+      <p className="text-sm text-muted-foreground text-center max-w-sm">
+        Loading Innovative Hub — robotics, IoT and electronics for students and makers in Odisha.
+      </p>
     </div>
   );
 }
 
 const queryClient = new QueryClient();
 
-const App = () => {
-  const [isLoading, setIsLoading] = useState(true);
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthProvider>
-          <CartProvider>
-            <WishlistProvider>
-              <Toaster />
-              <Sonner />
-              {isLoading ? (
-                <LoadingScreen onLoadingComplete={() => setIsLoading(false)} />
-              ) : (
-                <BrowserRouter>
-                  <ScrollToTop />
-                  <Suspense fallback={<PageFallback />}>
-                    <Routes>
-                      <Route path="/" element={<Layout><HomePage /></Layout>} />
-                      <Route path="/login" element={<LoginPage />} />
-                      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                      <Route path="/reset-password" element={<ResetPasswordPage />} />
-                      <Route path="/verify-email" element={<VerifyEmailPage />} />
-                      <Route path="/eshop" element={<EShopHomePage />} />
-                      <Route path="/eshop/products" element={<ProductListingPage />} />
-                      <Route path="/product/:id" element={<ProductDetailPage />} />
-                      <Route path="/cart" element={<CartPage />} />
-                      <Route path="/checkout" element={<CheckoutPage />} />
-                      <Route path="/order-success" element={<OrderSuccessPage />} />
-                      <Route path="/about" element={<AboutPage />} />
-                      <Route path="/contact" element={<ContactPage />} />
-                      <Route path="/faq" element={<FAQPage />} />
-                      <Route path="/account" element={<AccountPage />} />
-                      <Route path="/order/:orderId" element={<OrderDetailPage />} />
-                      <Route path="/order-tracking" element={<OrderTrackingPage />} />
-                      <Route path="/wishlist" element={<WishlistPage />} />
-                      <Route path="/robotics-courses" element={<ComingSoonPage title="Robotics Courses & Tutorials" />} />
-                      <Route path="/project-kits" element={<ComingSoonPage title="Project Kits & Consultation" />} />
-                      <Route path="/resources" element={<ComingSoonPage title="Resources & Ideas Hub" />} />
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </Suspense>
-                </BrowserRouter>
-              )}
-            </WishlistProvider>
-          </CartProvider>
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
-  );
-};
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <AuthProvider>
+        <CartProvider>
+          <WishlistProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <ScrollToTop />
+              <Suspense fallback={<PageFallback />}>
+                <Routes>
+                  <Route path="/" element={<Layout><HomePage /></Layout>} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                  <Route path="/reset-password" element={<ResetPasswordPage />} />
+                  <Route path="/verify-email" element={<VerifyEmailPage />} />
+                  <Route path="/eshop" element={<EShopHomePage />} />
+                  <Route path="/eshop/products" element={<ProductListingPage />} />
+                  <Route path="/product/:id" element={<ProductDetailPage />} />
+                  <Route path="/cart" element={<CartPage />} />
+                  <Route path="/checkout" element={<CheckoutPage />} />
+                  <Route path="/order-success" element={<OrderSuccessPage />} />
+                  <Route path="/about" element={<AboutPage />} />
+                  <Route path="/contact" element={<ContactPage />} />
+                  <Route path="/faq" element={<FAQPage />} />
+                  <Route path="/account" element={<AccountPage />} />
+                  <Route path="/order/:orderId" element={<OrderDetailPage />} />
+                  <Route path="/order-tracking" element={<OrderTrackingPage />} />
+                  <Route path="/wishlist" element={<WishlistPage />} />
+                  <Route path="/robotics-courses" element={<ComingSoonPage title="Robotics Courses & Tutorials" />} />
+                  <Route path="/project-kits" element={<ComingSoonPage title="Project Kits & Consultation" />} />
+                  <Route path="/resources" element={<ComingSoonPage title="Resources & Ideas Hub" />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+            </BrowserRouter>
+          </WishlistProvider>
+        </CartProvider>
+      </AuthProvider>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
 
 export default App;

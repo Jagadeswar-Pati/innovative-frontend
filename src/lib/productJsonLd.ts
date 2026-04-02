@@ -1,10 +1,9 @@
 /**
- * Dynamic Product JSON-LD for product detail pages (schema.org Product + Offer).
+ * Product JSON-LD (schema.org Product + Offer) for Helmet and tooling.
  */
 import { getBaseUrl } from '@/lib/seo';
 import { BRAND_LOGO } from '@/constants/media';
-
-const SCRIPT_ID = 'ih-product-jsonld';
+import { buildBreadcrumbListNode } from '@/lib/breadcrumbJsonLd';
 
 function toAbsoluteUrl(pathOrUrl: string, baseUrl: string): string {
   const u = pathOrUrl.trim();
@@ -37,8 +36,10 @@ export interface ProductJsonLdInput {
   priceCurrency?: string;
   stock: number;
   path: string;
-  /** Product SKU (required for Merchant / product rich results when available) */
+  /** Prefer real SKU; falls back to productId when empty */
   sku?: string;
+  /** Mongo _id — used as sku/mpn fallback */
+  productId?: string;
   category?: string;
   aggregateRating?: { ratingValue: number; reviewCount: number };
   reviews?: ProductJsonLdReview[];
@@ -50,10 +51,65 @@ function priceValidUntilIso(): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Approved or legacy reviews without status (treat as public). */
+export function filterApprovedReviews<T extends { status?: string }>(list: T[]): T[] {
+  if (!Array.isArray(list)) return [];
+  return list.filter((r) => (r as { status?: string }).status === 'approved' || !(r as { status?: string }).status);
+}
+
+export interface ReviewLike {
+  rating?: number;
+  userName?: string;
+  comment?: string;
+  pros?: string;
+  cons?: string;
+  status?: string;
+}
+
+/** Maps API reviews to aggregateRating + Review nodes for JSON-LD. */
+export function mapReviewsForProductJsonLd(reviews: ReviewLike[]): Pick<ProductJsonLdInput, 'aggregateRating' | 'reviews'> {
+  const approved = filterApprovedReviews(reviews);
+  if (!approved.length) return {};
+
+  let sum = 0;
+  let count = 0;
+  approved.forEach((r) => {
+    const n = Number(r.rating);
+    if (n >= 1 && n <= 5) {
+      sum += n;
+      count += 1;
+    }
+  });
+
+  const reviewsOut: ProductJsonLdReview[] = approved.slice(0, 5).map((r) => {
+    const body = [r.comment, r.pros, r.cons]
+      .map((x) => (x || '').trim())
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    const rating = Math.min(5, Math.max(1, Math.round(Number(r.rating) || 0) || 1));
+    return {
+      authorName: r.userName?.trim() || 'Verified buyer',
+      reviewBody: body || `Customer rated this product ${rating} out of 5.`,
+      ratingValue: rating,
+    };
+  });
+
+  const out: Pick<ProductJsonLdInput, 'aggregateRating' | 'reviews'> = {};
+  if (count > 0) {
+    out.aggregateRating = {
+      ratingValue: Math.round((sum / count) * 10) / 10,
+      reviewCount: count,
+    };
+  }
+  if (reviewsOut.length) out.reviews = reviewsOut;
+  return out;
+}
+
 /**
- * Injects or updates a single JSON-LD script for the current product.
+ * Builds schema.org Product object (no @context — use inside @graph or add context at root).
  */
-export function setProductJsonLd(input: ProductJsonLdInput): void {
+export function buildProductJsonLdObject(input: ProductJsonLdInput): Record<string, unknown> {
   const baseUrl = getBaseUrl();
   const desc = stripHtml(input.description).slice(0, 5000);
   const rawImages = Array.isArray(input.image) ? input.image : [input.image];
@@ -62,12 +118,12 @@ export function setProductJsonLd(input: ProductJsonLdInput): void {
   const availability =
     input.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock';
   const path = input.path.startsWith('/') ? input.path : `/${input.path}`;
-  const offerUrl = `${baseUrl}${path}`;
-  const sku = (input.sku || '').trim();
+  const productPageUrl = `${baseUrl}${path}`;
+  const skuVal = (input.sku || '').trim() || (input.productId || '').trim();
 
   const offer: Record<string, unknown> = {
     '@type': 'Offer',
-    url: offerUrl,
+    url: productPageUrl,
     priceCurrency: input.priceCurrency ?? 'INR',
     price: String(input.price),
     availability,
@@ -76,9 +132,9 @@ export function setProductJsonLd(input: ProductJsonLdInput): void {
   };
 
   const schema: Record<string, unknown> = {
-    '@context': 'https://schema.org/',
     '@type': 'Product',
     name: input.name,
+    url: productPageUrl,
     image: images.length <= 1 ? primaryImage : images,
     description: desc || input.name,
     brand: {
@@ -88,9 +144,10 @@ export function setProductJsonLd(input: ProductJsonLdInput): void {
     offers: offer,
   };
 
-  if (sku) {
-    schema.sku = sku;
-    schema.mpn = sku;
+  if (skuVal) {
+    schema.sku = skuVal;
+    schema.mpn = skuVal;
+    schema.productID = skuVal;
   }
 
   if (input.category?.trim()) {
@@ -118,7 +175,7 @@ export function setProductJsonLd(input: ProductJsonLdInput): void {
   }
 
   if (input.reviews && input.reviews.length > 0) {
-    schema.review = input.reviews.slice(0, 5).map((r) => ({
+    schema.review = input.reviews.map((r) => ({
       '@type': 'Review',
       author: {
         '@type': 'Person',
@@ -133,17 +190,17 @@ export function setProductJsonLd(input: ProductJsonLdInput): void {
     }));
   }
 
-  let el = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
-  if (!el) {
-    const script = document.createElement('script');
-    script.type = 'application/ld+json';
-    script.id = SCRIPT_ID;
-    document.head.appendChild(script);
-    el = script;
-  }
-  el.textContent = JSON.stringify(schema);
+  return schema;
 }
 
-export function clearProductJsonLd(): void {
-  document.getElementById(SCRIPT_ID)?.remove();
+export function buildProductDetailJsonLdGraphString(
+  productInput: ProductJsonLdInput,
+  breadcrumbItems: { name: string; path: string }[]
+): string {
+  const productNode = buildProductJsonLdObject(productInput);
+  const crumbNode = buildBreadcrumbListNode(breadcrumbItems);
+  return JSON.stringify({
+    '@context': 'https://schema.org',
+    '@graph': [productNode, crumbNode],
+  });
 }

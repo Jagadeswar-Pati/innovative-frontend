@@ -9,7 +9,7 @@ import { ProductSkeletonGrid } from '../components/ProductSkeleton';
 import { productsApi } from '../services/api';
 import { useCategories } from '../hooks/useCategories';
 import type { Product } from '../utils/products';
-import { slugify } from '../utils/products';
+import { getListingSeoBlocks } from '@/lib/listingSeoContent';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -174,6 +174,11 @@ const ProductListingPage = ({ useMainLayout = false }: ProductListingPageProps) 
     return `${currentCategory}, electronic components, buy online India, robotics parts, IoT modules, ${SITE_NAME}, Odisha`;
   }, [hasSearch, searchParam, currentCategory]);
 
+  const listingSeoBlocks = useMemo(
+    () => getListingSeoBlocks(categoryParam, currentCategory, searchParam),
+    [categoryParam, currentCategory, searchParam]
+  );
+
   const content = (
     <>
       <SEO
@@ -181,7 +186,6 @@ const ProductListingPage = ({ useMainLayout = false }: ProductListingPageProps) 
         description={listingDescription}
         keywords={listingKeywords}
         path={listPath}
-        noIndex={hasSearch}
       />
       <div className="container mx-auto px-2 sm:px-4 pb-8 sm:pb-12">
         {/* Breadcrumb — touch-friendly links on mobile */}
@@ -294,9 +298,13 @@ const ProductListingPage = ({ useMainLayout = false }: ProductListingPageProps) 
             }
           />
         ) : filteredAndSortedProducts.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground text-lg">No products found</p>
-            <Link to="/eshop/products" className="mt-4 text-primary hover:underline inline-block">
+          <div className="text-center py-12 max-w-lg mx-auto px-2">
+            <h2 className="text-lg font-semibold text-foreground mb-3">No products match this view</h2>
+            <p className="text-muted-foreground text-sm sm:text-base leading-relaxed mb-4">
+              Try another category, clear filters, or use a shorter search term. Innovative Hub lists microcontrollers, sensors,
+              motors and power modules updated regularly — the full catalog is available from the E-Shop home.
+            </p>
+            <Link to="/eshop/products" className="text-primary hover:underline inline-block font-medium min-h-[44px]">
               View all products
             </Link>
           </div>
@@ -323,6 +331,23 @@ const ProductListingPage = ({ useMainLayout = false }: ProductListingPageProps) 
             </div>
           </>
         )}
+
+        <section
+          className="mt-12 sm:mt-16 rounded-xl border border-border/60 bg-card/30 px-4 py-6 sm:px-6 sm:py-8"
+          aria-labelledby="listing-seo-heading"
+        >
+          <h2 id="listing-seo-heading" className="text-lg sm:text-xl font-bold text-foreground mb-4">
+            {listingSeoBlocks.h2}
+          </h2>
+          <div className="space-y-5 text-sm sm:text-base text-muted-foreground leading-relaxed">
+            {listingSeoBlocks.sections.map((sec) => (
+              <div key={sec.title}>
+                <h3 className="text-base font-semibold text-foreground mb-2">{sec.title}</h3>
+                <p>{sec.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     </>
   );
