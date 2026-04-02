@@ -121,7 +121,7 @@ const Footer = () => {
         {/* Bottom Bar */}
         <div className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-white/10">
           <p className="text-center text-xs sm:text-sm text-footer-muted px-2">
-            © 2026 Innovative Hub. All rights reserved.
+            © 2025 Innovative Hub. All rights reserved.
           </p>
         </div>
       </div>
