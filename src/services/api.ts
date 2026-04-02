@@ -430,6 +430,28 @@ export const ordersApi = {
     return { success: true, data: toFrontendOrder(raw as Record<string, unknown>), message: '' } as ApiResponse<Order>;
   },
 
+  /** Guest tracking: order ID + email must match the account that placed the order. No auth. */
+  trackOrder: async (orderId: string, email: string): Promise<ApiResponse<Order>> => {
+    const res = await fetch(`${API_URL}/api/orders/track`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId: orderId.trim(), email: email.trim() }),
+    });
+    const json = (await res.json().catch(() => ({}))) as ApiResponse<unknown> & { message?: string };
+    if (!res.ok) {
+      return {
+        success: false,
+        data: undefined as unknown as Order,
+        message: json.message || 'Order not found. Check your order ID and the email on your account.',
+      };
+    }
+    const raw = json.data;
+    if (!raw || typeof raw !== 'object') {
+      return { success: false, data: undefined as unknown as Order, message: 'Order not found.' };
+    }
+    return { success: true, data: toFrontendOrder(raw as Record<string, unknown>), message: '' };
+  },
+
   /** Generate PDF invoice for confirmed/paid order (if not already generated). */
   generateInvoice: async (orderId: string) => {
     const res = await fetchWithAuth<{ invoiceNumber: string; invoiceUrl: string }>(`/api/orders/${orderId}/generate-invoice`, {

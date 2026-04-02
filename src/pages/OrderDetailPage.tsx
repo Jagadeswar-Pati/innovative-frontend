@@ -8,6 +8,8 @@ import { Separator } from '@/components/ui/separator';
 import EShopLayout from '../components/EShopLayout';
 import SEO from '@/components/SEO';
 import { ordersApi, Order } from '../services/api';
+import { useAuth } from '@/context/AuthContext';
+import { ORDER_TRACK_STORAGE_KEY } from '@/lib/orderTrackStorage';
 import { calculateGstBreakdown, formatPrice } from '@/utils/price';
 import { useToast } from '@/hooks/use-toast';
 import { PLACEHOLDER_IMAGE } from '@/constants/media';
@@ -17,8 +19,10 @@ const OrderDetailPage = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [accessMode, setAccessMode] = useState<'owner' | 'guest'>('owner');
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
   const [isOpeningInvoice, setIsOpeningInvoice] = useState(false);
   const [orderIdCopied, setOrderIdCopied] = useState(false);
@@ -26,13 +30,39 @@ const OrderDetailPage = () => {
   const fetchOrder = async () => {
     if (!orderId) return;
     setIsLoading(true);
+    setOrder(null);
+    setAccessMode('owner');
     try {
-      const response = await ordersApi.getById(orderId);
-      if (response.success && response.data) {
-        setOrder(response.data as Order);
-      } else {
-        setOrder(null);
+      if (isAuthenticated) {
+        try {
+          const response = await ordersApi.getById(orderId);
+          if (response.success && response.data?._id) {
+            setOrder(response.data);
+            setAccessMode('owner');
+            return;
+          }
+        } catch {
+          /* not owner or error — try guest tracking below */
+        }
       }
+
+      let stored: { orderId?: string; email?: string } | null = null;
+      try {
+        const raw = sessionStorage.getItem(ORDER_TRACK_STORAGE_KEY);
+        if (raw) stored = JSON.parse(raw) as { orderId?: string; email?: string };
+      } catch {
+        stored = null;
+      }
+      if (stored?.orderId === orderId && stored.email) {
+        const res = await ordersApi.trackOrder(orderId, stored.email);
+        if (res.success && res.data?._id) {
+          setOrder(res.data);
+          setAccessMode('guest');
+          return;
+        }
+      }
+
+      setOrder(null);
     } catch (error) {
       console.error('Failed to fetch order:', error);
       setOrder(null);
@@ -43,9 +73,14 @@ const OrderDetailPage = () => {
 
   useEffect(() => {
     if (orderId) fetchOrder();
-  }, [orderId]);
+  }, [orderId, isAuthenticated]);
 
-  const canHaveInvoice = order && (order.paymentStatus === 'paid' || order.paymentStatus === 'Paid' || ['confirmed', 'processing', 'shipped', 'delivered', 'Packed', 'Shipped', 'Delivered'].includes(order.orderStatus));
+  const canHaveInvoice =
+    accessMode === 'owner' &&
+    order &&
+    (order.paymentStatus === 'paid' ||
+      order.paymentStatus === 'Paid' ||
+      ['confirmed', 'processing', 'shipped', 'delivered', 'Packed', 'Shipped', 'Delivered'].includes(order.orderStatus));
   const hasInvoice = Boolean(order?.invoiceUrl);
   const handleGenerateInvoice = async () => {
     if (!orderId || !order) return;
@@ -170,14 +205,23 @@ const OrderDetailPage = () => {
   if (!order) {
     return (
       <EShopLayout>
-        <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+        <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4 text-center">
           <Package className="h-16 w-16 text-muted-foreground" />
-          <h2 className="text-2xl font-bold">Order Not Found</h2>
-          <p className="text-muted-foreground">The order you're looking for doesn't exist.</p>
-          <Button onClick={() => navigate('/account')}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Orders
-          </Button>
+          <h2 className="text-2xl font-bold">Order not found</h2>
+          <p className="text-muted-foreground max-w-md">
+            We could not open this order. If you are not logged in, use order tracking with your order ID and account email.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button onClick={() => navigate('/order-tracking')}>
+              Order tracking
+            </Button>
+            {isAuthenticated ? (
+              <Button variant="outline" onClick={() => navigate('/account')}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to orders
+              </Button>
+            ) : null}
+          </div>
         </div>
       </EShopLayout>
     );
@@ -194,7 +238,12 @@ const OrderDetailPage = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div className="flex items-center gap-3 sm:gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/account')} className="min-h-[44px] min-w-[44px] touch-manipulation shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(accessMode === 'guest' ? '/order-tracking' : '/account')}
+              className="min-h-[44px] min-w-[44px] touch-manipulation shrink-0"
+            >
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="min-w-0 space-y-2">
@@ -479,9 +528,13 @@ const OrderDetailPage = () => {
 
             {/* Actions */}
             <div className="space-y-3">
-              <Button variant="outline" className="w-full" onClick={() => navigate('/account')}>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => navigate(accessMode === 'guest' ? '/order-tracking' : '/account')}
+              >
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Orders
+                {accessMode === 'guest' ? 'Back to order tracking' : 'Back to orders'}
               </Button>
               <Button variant="outline" className="w-full" asChild>
                 <Link to="/contact">Need Help?</Link>

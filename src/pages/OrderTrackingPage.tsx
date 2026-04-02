@@ -1,14 +1,61 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import SEO from '@/components/SEO';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Package, Search } from 'lucide-react';
+import { ordersApi } from '@/services/api';
+import { useToast } from '@/hooks/use-toast';
+import { ORDER_TRACK_STORAGE_KEY } from '@/lib/orderTrackStorage';
 
 const OrderTrackingPage = () => {
-  const handleSubmit = (e: React.FormEvent) => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [orderId, setOrderId] = useState('');
+  const [email, setEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Order tracking will be handled when backend is integrated
+    const id = orderId.trim();
+    const em = email.trim();
+    if (!id || !em) {
+      toast({ title: 'Missing details', description: 'Enter both order ID and email.', variant: 'destructive' });
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const res = await ordersApi.trackOrder(id, em);
+      if (!res.success || !res.data?._id) {
+        toast({
+          title: 'Could not find order',
+          description:
+            res.message ||
+            'Check that the order ID matches your confirmation email or account orders, and use the same email as your Innovative Hub login.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      try {
+        sessionStorage.setItem(
+          ORDER_TRACK_STORAGE_KEY,
+          JSON.stringify({ orderId: res.data._id, email: em.toLowerCase() })
+        );
+      } catch {
+        /* ignore quota / private mode */
+      }
+      navigate(`/order/${res.data._id}`);
+    } catch (err) {
+      toast({
+        title: 'Something went wrong',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -29,7 +76,7 @@ const OrderTrackingPage = () => {
                 Order Tracking
               </h1>
               <p className="text-sm sm:text-base text-muted-foreground">
-                Enter your order details to track your shipment
+                Enter the order ID and the email on your Innovative Hub account. No login required.
               </p>
             </div>
 
@@ -37,24 +84,34 @@ const OrderTrackingPage = () => {
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="orderId">Order ID</Label>
-                  <Input 
-                    id="orderId" 
-                    placeholder="e.g., ORD-12345678" 
-                    className="bg-background/50"
+                  <Input
+                    id="orderId"
+                    name="orderId"
+                    value={orderId}
+                    onChange={(e) => setOrderId(e.target.value)}
+                    placeholder="e.g. 507f1f77bcf86cd799439011"
+                    className="bg-background/50 font-mono text-sm"
+                    autoComplete="off"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input 
-                    id="email" 
-                    type="email" 
-                    placeholder="The email used for your order" 
+                  <Label htmlFor="email">Email address</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Same email as your account that placed the order"
                     className="bg-background/50"
+                    autoComplete="email"
+                    disabled={isSubmitting}
                   />
                 </div>
-                <Button type="submit" className="w-full min-h-[48px] rounded-lg gap-2 touch-manipulation">
+                <Button type="submit" className="w-full min-h-[48px] rounded-lg gap-2 touch-manipulation" disabled={isSubmitting}>
                   <Search className="w-4 h-4" />
-                  Track Order
+                  {isSubmitting ? 'Looking up…' : 'Track order'}
                 </Button>
               </form>
 
