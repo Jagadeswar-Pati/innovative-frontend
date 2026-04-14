@@ -25,12 +25,13 @@ declare global {
 
 const ADDRESS_REQUIRED_MSG = 'Please add or select a delivery address to continue.';
 const PENDING_CHECKOUT_KEY = 'pendingCheckoutPayment';
+const CHECKOUT_FORM_STATE_KEY = 'checkoutFormState';
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { items, totalPrice, clearCart } = useCart();
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<string>('');
@@ -41,7 +42,6 @@ const CheckoutPage = () => {
   const [useAccountMobile, setUseAccountMobile] = useState(true);
   const [otherDeliveryMobile, setOtherDeliveryMobile] = useState('');
   const [stateCharges, setStateCharges] = useState<{ defaultShippingCharge: number } | null>(null);
-  const [hasRedirectedToAddress, setHasRedirectedToAddress] = useState(false);
   const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{
     code: string;
@@ -67,28 +67,63 @@ const CheckoutPage = () => {
     });
 
   useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(CHECKOUT_FORM_STATE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as {
+        selectedAddress?: string;
+        deliveryAgreement?: boolean;
+        waitForCompletionAgreement?: boolean;
+        useAccountMobile?: boolean;
+        otherDeliveryMobile?: string;
+        couponInput?: string;
+      };
+      if (saved.selectedAddress) setSelectedAddress(saved.selectedAddress);
+      if (typeof saved.deliveryAgreement === 'boolean') setDeliveryAgreement(saved.deliveryAgreement);
+      if (typeof saved.waitForCompletionAgreement === 'boolean') setWaitForCompletionAgreement(saved.waitForCompletionAgreement);
+      if (typeof saved.useAccountMobile === 'boolean') setUseAccountMobile(saved.useAccountMobile);
+      if (typeof saved.otherDeliveryMobile === 'string') setOtherDeliveryMobile(saved.otherDeliveryMobile);
+      if (typeof saved.couponInput === 'string') setCouponInput(saved.couponInput);
+    } catch {
+      sessionStorage.removeItem(CHECKOUT_FORM_STATE_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
     if (user?.addresses) {
       setAddresses(user.addresses);
-      const defaultAddress = user.addresses.find((a) => a.isDefault) || user.addresses[0];
-      setSelectedAddress(defaultAddress?._id || '');
-      if (user.addresses.length > 0) {
-        setHasRedirectedToAddress(false);
+      const hasCurrentSelected =
+        Boolean(selectedAddress) && user.addresses.some((a) => a._id === selectedAddress);
+      if (!hasCurrentSelected) {
+        const defaultAddress = user.addresses.find((a) => a.isDefault) || user.addresses[0];
+        setSelectedAddress(defaultAddress?._id || '');
       }
     } else if (user && Array.isArray(user.addresses)) {
       setAddresses([]);
       setSelectedAddress('');
     }
-  }, [user]);
+  }, [user, selectedAddress]);
 
-  // Redirect to Add Address when user has no saved addresses (after auth is ready)
   useEffect(() => {
-    if (authLoading || !isAuthenticated || hasRedirectedToAddress) return;
-    const hasNoAddresses = user && (!Array.isArray(user.addresses) || user.addresses.length === 0);
-    if (hasNoAddresses) {
-      setHasRedirectedToAddress(true);
-      navigate(`/account?tab=addresses&returnTo=${encodeURIComponent('/checkout')}`, { replace: true });
-    }
-  }, [authLoading, isAuthenticated, user, hasRedirectedToAddress, navigate]);
+    sessionStorage.setItem(
+      CHECKOUT_FORM_STATE_KEY,
+      JSON.stringify({
+        selectedAddress,
+        deliveryAgreement,
+        waitForCompletionAgreement,
+        useAccountMobile,
+        otherDeliveryMobile,
+        couponInput,
+      })
+    );
+  }, [
+    selectedAddress,
+    deliveryAgreement,
+    waitForCompletionAgreement,
+    useAccountMobile,
+    otherDeliveryMobile,
+    couponInput,
+  ]);
 
   useEffect(() => {
     try {
@@ -517,8 +552,17 @@ const CheckoutPage = () => {
   };
 
   if (buyNowHydrated && checkoutItems.length === 0) {
-    navigate('/cart', { replace: true });
-    return null;
+    return (
+      <EShopLayout hideSearch>
+        <SEO title="Checkout" description="Complete your order at Innovative Hub." path="/checkout" noIndex />
+        <div className="container mx-auto px-3 sm:px-4 py-12 text-center">
+          <p className="text-muted-foreground mb-4">No checkout items found right now.</p>
+          <Link to="/cart" className="text-primary hover:underline font-medium">
+            Go to cart
+          </Link>
+        </div>
+      </EShopLayout>
+    );
   }
 
   if (!buyNowHydrated) {
@@ -527,17 +571,6 @@ const CheckoutPage = () => {
         <SEO title="Checkout" description="Complete your order at Innovative Hub." path="/checkout" noIndex />
         <div className="container mx-auto px-3 sm:px-4 py-12 flex justify-center">
           <p className="text-muted-foreground">Loading checkout…</p>
-        </div>
-      </EShopLayout>
-    );
-  }
-
-  if (hasRedirectedToAddress) {
-    return (
-      <EShopLayout hideSearch>
-        <SEO title="Checkout" description="Complete your order at Innovative Hub." path="/checkout" noIndex />
-        <div className="container mx-auto px-3 sm:px-4 py-12 flex justify-center">
-          <p className="text-muted-foreground">Redirecting to add address...</p>
         </div>
       </EShopLayout>
     );
