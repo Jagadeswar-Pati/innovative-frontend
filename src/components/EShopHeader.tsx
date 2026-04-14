@@ -12,9 +12,10 @@ import LogoMark from '@/components/LogoMark';
 interface EShopHeaderProps {
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
+  hideSearch?: boolean;
 }
 
-const EShopHeader = ({ searchQuery = '', onSearchChange }: EShopHeaderProps) => {
+const EShopHeader = ({ searchQuery = '', onSearchChange, hideSearch = false }: EShopHeaderProps) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -35,7 +36,7 @@ const EShopHeader = ({ searchQuery = '', onSearchChange }: EShopHeaderProps) => 
       <header className="fixed top-0 left-0 right-0 z-40 bg-background border-b border-border">
         <div className="container mx-auto px-4">
           {/* Top Bar: left = menu+logo (tight); md+ = grid with search centered in middle column */}
-          <div className="flex items-center justify-between md:grid md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:gap-3 h-16 md:h-20 gap-2">
+          <div className={`flex items-center justify-between h-16 md:h-20 gap-2 ${hideSearch ? 'md:flex md:justify-between' : 'md:grid md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:gap-3'}`}>
             <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-1 md:flex-initial md:shrink-0">
               {/* Menu Button - Opens Category Sidebar (touch-friendly) */}
               <button
@@ -62,22 +63,26 @@ const EShopHeader = ({ searchQuery = '', onSearchChange }: EShopHeaderProps) => 
             </div>
 
             {/* Search Bar — centered in the header row on md+ */}
-            <div className="hidden md:flex justify-center min-w-0 w-full px-2">
+            <div className={`hidden md:flex justify-center min-w-0 w-full px-2 ${hideSearch ? 'md:hidden' : ''}`}>
               <div className="relative w-full max-w-xl">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                <Input
-                  type="text"
-                  placeholder="Search for products..."
-                  value={searchQuery}
-                  onChange={(e) => onSearchChange?.(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      submitSearchToListing();
-                    }
-                  }}
-                  className="pl-10 bg-secondary/50 w-full"
-                />
+                {!hideSearch && (
+                  <>
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      type="text"
+                      placeholder="Search for products..."
+                      value={searchQuery}
+                      onChange={(e) => onSearchChange?.(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          submitSearchToListing();
+                        }
+                      }}
+                      className="pl-10 bg-secondary/50 w-full"
+                    />
+                  </>
+                )}
               </div>
             </div>
 
@@ -111,24 +116,26 @@ const EShopHeader = ({ searchQuery = '', onSearchChange }: EShopHeaderProps) => 
           </div>
 
           {/* Mobile Search */}
-          <div className="md:hidden pb-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search for products..."
-                value={searchQuery}
-                onChange={(e) => onSearchChange?.(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    submitSearchToListing();
-                  }
-                }}
-                className="pl-10 bg-secondary/50"
-              />
+          {!hideSearch && (
+            <div className="md:hidden pb-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search for products..."
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange?.(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      submitSearchToListing();
+                    }
+                  }}
+                  className="pl-10 bg-secondary/50"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Category Navigation - Desktop */}
           <nav className="hidden lg:flex items-center gap-2 py-3 overflow-x-auto">

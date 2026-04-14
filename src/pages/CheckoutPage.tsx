@@ -405,7 +405,7 @@ const CheckoutPage = () => {
 
   if (!buyNowHydrated) {
     return (
-      <EShopLayout>
+      <EShopLayout hideSearch>
         <SEO title="Checkout" description="Complete your order at Innovative Hub." path="/checkout" noIndex />
         <div className="container mx-auto px-3 sm:px-4 py-12 flex justify-center">
           <p className="text-muted-foreground">Loading checkout…</p>
@@ -416,7 +416,7 @@ const CheckoutPage = () => {
 
   if (hasRedirectedToAddress) {
     return (
-      <EShopLayout>
+      <EShopLayout hideSearch>
         <SEO title="Checkout" description="Complete your order at Innovative Hub." path="/checkout" noIndex />
         <div className="container mx-auto px-3 sm:px-4 py-12 flex justify-center">
           <p className="text-muted-foreground">Redirecting to add address...</p>
@@ -426,7 +426,7 @@ const CheckoutPage = () => {
   }
 
   return (
-    <EShopLayout>
+    <EShopLayout hideSearch>
       <SEO title="Checkout" description="Complete your order at Innovative Hub." path="/checkout" noIndex />
       {paymentOverlayActive && (
         <div
@@ -452,7 +452,7 @@ const CheckoutPage = () => {
           </p>
         </div>
       )}
-      <div className="container mx-auto px-3 sm:px-4 pb-8 sm:pb-12 max-w-full">
+      <div className="container mx-auto px-3 sm:px-4 pt-2 lg:pt-3 pb-8 sm:pb-12 max-w-full">
         <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-6 sm:mb-8">Checkout</h1>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
