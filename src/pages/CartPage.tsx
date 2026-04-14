@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Trash2, Minus, Plus, ShoppingBag } from 'lucide-react';
 import EShopLayout from '../components/EShopLayout';
@@ -10,14 +10,26 @@ import { PLACEHOLDER_IMAGE } from '@/constants/media';
 
 const CartPage = () => {
   const { items, totalItems, totalPrice, removeFromCart, updateQuantity } = useCart();
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     sessionStorage.removeItem('buyNowItem');
   }, []);
 
+  const filteredItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter(({ product }) => {
+      const name = (product.name || '').toLowerCase();
+      const category = (product.category || '').toLowerCase();
+      const desc = (product.shortDescription || '').replace(/<[^>]*>/g, ' ').toLowerCase();
+      return name.includes(q) || category.includes(q) || desc.includes(q);
+    });
+  }, [items, searchQuery]);
+
   if (items.length === 0) {
     return (
-      <EShopLayout>
+      <EShopLayout searchQuery={searchQuery} onSearchChange={setSearchQuery}>
         <SEO title="Cart" description="Your shopping cart at Innovative Hub." path="/cart" noIndex />
         <div className="container mx-auto px-4 py-12 text-center">
           <ShoppingBag className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
@@ -34,14 +46,20 @@ const CartPage = () => {
   const breakdown = calculateGstBreakdown(totalPrice);
 
   return (
-    <EShopLayout>
+    <EShopLayout searchQuery={searchQuery} onSearchChange={setSearchQuery}>
       <SEO title="Shopping Cart" description="Review and manage your cart at Innovative Hub." path="/cart" noIndex />
       <div className="container mx-auto px-3 sm:px-4 pb-8 sm:pb-12 max-w-full">
         <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-4 sm:mb-8">Shopping Cart ({totalItems} items)</h1>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
           <div className="lg:col-span-2 space-y-3 sm:space-y-4">
-            {items.map(({ product, quantity }) => {
+            {filteredItems.length === 0 ? (
+              <div className="bg-card border border-border rounded-xl p-6 text-center">
+                <p className="text-muted-foreground">
+                  No cart items match "{searchQuery.trim()}".
+                </p>
+              </div>
+            ) : filteredItems.map(({ product, quantity }) => {
               const plusDisabled =
                 product.stock <= 0 || (product.stock > 0 && quantity >= product.stock);
               const minusDisabled = quantity <= 1;

@@ -647,6 +647,7 @@ export const paymentsApi = {
       {
         method: 'POST',
         body: JSON.stringify(data),
+        keepalive: true,
       }
     );
   },

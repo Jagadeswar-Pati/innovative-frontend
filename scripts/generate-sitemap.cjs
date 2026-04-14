@@ -10,6 +10,7 @@ const root = path.join(__dirname, '..');
 const envPath = path.join(root, '.env');
 const sitemapPath = path.join(root, 'public', 'sitemap.xml');
 const robotsPath = path.join(root, 'public', 'robots.txt');
+const productCachePath = path.join(root, 'public', 'sitemap-products-cache.json');
 
 const FALLBACK_SITE = 'https://inovative-hub.com';
 const FALLBACK_API = 'http://127.0.0.1:5000';
@@ -63,9 +64,6 @@ const STATIC_ENTRIES = [
   ['/contact', 'weekly', '0.8'],
   ['/faq', 'weekly', '0.8'],
   ['/order-tracking', 'weekly', '0.8'],
-  ['/robotics-courses', 'weekly', '0.8'],
-  ['/project-kits', 'weekly', '0.8'],
-  ['/resources', 'weekly', '0.8'],
 ];
 
 function escapeXml(s) {
@@ -79,6 +77,21 @@ function escapeXml(s) {
 function urlEl(loc, changefreq, priority, lastmod) {
   const lm = lastmod ? `<lastmod>${escapeXml(lastmod)}</lastmod>` : '';
   return `  <url><loc>${escapeXml(loc)}</loc>${lm}<changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
+}
+
+function loadCachedProductIds() {
+  if (!fs.existsSync(productCachePath)) return [];
+  try {
+    const raw = JSON.parse(fs.readFileSync(productCachePath, 'utf8'));
+    if (!Array.isArray(raw)) return [];
+    return raw.map((x) => String(x || '').trim()).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function saveCachedProductIds(ids) {
+  fs.writeFileSync(productCachePath, JSON.stringify(Array.from(new Set(ids)), null, 2), 'utf8');
 }
 
 async function fetchAllProductIds(apiBase) {
@@ -110,24 +123,38 @@ async function main() {
   const lastmod = new Date().toISOString().slice(0, 10);
 
   const lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'];
+  const seen = new Set();
+  const pushUrl = (loc, freq, pri, lm) => {
+    if (seen.has(loc)) return;
+    seen.add(loc);
+    lines.push(urlEl(loc, freq, pri, lm));
+  };
 
   for (const [p, freq, pri] of STATIC_ENTRIES) {
-    lines.push(urlEl(`${site}${p}`, freq, pri, lastmod));
+    pushUrl(`${site}${p}`, freq, pri, lastmod);
   }
 
   for (const slug of CATEGORY_SLUGS) {
     const loc = `${site}/eshop/products?category=${encodeURIComponent(slug)}`;
-    lines.push(urlEl(loc, 'weekly', '0.8', lastmod));
+    pushUrl(loc, 'weekly', '0.8', lastmod);
   }
 
   try {
     const productIds = await fetchAllProductIds(api);
+    saveCachedProductIds(productIds);
     for (const id of productIds) {
-      lines.push(urlEl(`${site}/product/${encodeURIComponent(id)}`, 'weekly', '0.8', lastmod));
+      pushUrl(`${site}/product/${encodeURIComponent(id)}`, 'weekly', '0.8', lastmod);
     }
     console.log('Sitemap: added', productIds.length, 'product URLs from', api);
   } catch (e) {
+    const cachedIds = loadCachedProductIds();
+    for (const id of cachedIds) {
+      pushUrl(`${site}/product/${encodeURIComponent(id)}`, 'weekly', '0.8', lastmod);
+    }
     console.warn('Sitemap: product fetch skipped —', e.message || e);
+    if (cachedIds.length > 0) {
+      console.log('Sitemap: used', cachedIds.length, 'cached product URLs');
+    }
   }
 
   lines.push('</urlset>');
@@ -139,6 +166,16 @@ Allow: /
 
 Disallow: /admin
 Disallow: /private
+Disallow: /account
+Disallow: /cart
+Disallow: /checkout
+Disallow: /wishlist
+Disallow: /login
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /order-success
+Disallow: /order/
 
 Sitemap: ${site}/sitemap.xml
 `;

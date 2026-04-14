@@ -76,6 +76,11 @@ const WishlistPage = () => {
               <Heart className="w-5 h-5 text-primary" />
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-foreground">My Wishlist</h1>
+            <Link to="/cart" className="ml-auto">
+              <Button type="button" variant="outline" className="min-h-[44px]">
+                Go to Cart
+              </Button>
+            </Link>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">

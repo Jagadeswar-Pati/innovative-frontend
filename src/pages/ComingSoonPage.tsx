@@ -9,7 +9,7 @@ const ComingSoonPage = ({ title }: { title: string }) => {
 
   return (
     <Layout>
-      <SEO title={title} description={description} path={pathname} />
+      <SEO title={title} description={description} path={pathname} noIndex />
       <div className="min-h-[70vh] flex items-center justify-center network-bg">
         <article className="container mx-auto px-4 py-10 sm:py-14 max-w-3xl">
           <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-6 text-center text-balance">

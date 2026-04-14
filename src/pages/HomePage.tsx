@@ -39,12 +39,34 @@ const offerings = [
 ];
 
 const HomePage = () => {
+  const homePageJsonLd = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'WebSite',
+        name: 'Innovative Hub',
+        url: 'https://inovative-hub.com/',
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: 'https://inovative-hub.com/eshop/products?search={search_term_string}',
+          'query-input': 'required name=search_term_string',
+        },
+      },
+      {
+        '@type': 'Organization',
+        name: 'Innovative Hub',
+        url: 'https://inovative-hub.com/',
+      },
+    ],
+  });
+
   return (
     <>
         <SEO
         title="Robotics, IoT & Embedded Systems in Odisha"
         description="Your all-in-one innovation platform for robotics, IoT, and embedded systems. Shop components, kits, and tutorials — tools, knowledge, and community to turn ideas into real-world solutions."
         path="/"
+        jsonLd={[homePageJsonLd]}
       />
       <section className="relative min-h-screen flex flex-col overflow-x-hidden overflow-y-visible" aria-label="Home">
       {/* Video Background - covers entire section */}
@@ -112,6 +134,27 @@ const HomePage = () => {
             </Link>
           ))}
         </div>
+
+        <nav
+          aria-label="Popular pages"
+          className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-gray-300"
+        >
+          <Link to="/eshop/products" className="hover:text-white underline underline-offset-4">
+            Shop all products
+          </Link>
+          <Link to="/about" className="hover:text-white underline underline-offset-4">
+            About Innovative Hub
+          </Link>
+          <Link to="/contact" className="hover:text-white underline underline-offset-4">
+            Contact us
+          </Link>
+          <Link to="/faq" className="hover:text-white underline underline-offset-4">
+            FAQ
+          </Link>
+          <Link to="/order-tracking" className="hover:text-white underline underline-offset-4">
+            Track your order
+          </Link>
+        </nav>
       </div>
     </section>
     </>

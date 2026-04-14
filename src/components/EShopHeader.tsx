@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, User, Heart, ShoppingCart, Search } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -17,9 +17,16 @@ interface EShopHeaderProps {
 const EShopHeader = ({ searchQuery = '', onSearchChange }: EShopHeaderProps) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { totalItems: cartItems } = useCart();
   const { totalItems: wishlistItems } = useWishlist();
   const { categories } = useCategories();
+
+  const submitSearchToListing = () => {
+    const q = searchQuery.trim();
+    if (!q) return;
+    navigate(`/eshop/products?search=${encodeURIComponent(q)}`);
+  };
 
   return (
     <>
@@ -63,6 +70,12 @@ const EShopHeader = ({ searchQuery = '', onSearchChange }: EShopHeaderProps) => 
                   placeholder="Search for products..."
                   value={searchQuery}
                   onChange={(e) => onSearchChange?.(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      submitSearchToListing();
+                    }
+                  }}
                   className="pl-10 bg-secondary/50 w-full"
                 />
               </div>
@@ -106,6 +119,12 @@ const EShopHeader = ({ searchQuery = '', onSearchChange }: EShopHeaderProps) => 
                 placeholder="Search for products..."
                 value={searchQuery}
                 onChange={(e) => onSearchChange?.(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submitSearchToListing();
+                  }
+                }}
                 className="pl-10 bg-secondary/50"
               />
             </div>

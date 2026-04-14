@@ -54,11 +54,13 @@ const ProductListingPage = ({ useMainLayout = false }: ProductListingPageProps) 
       if (!append) setIsLoading(true);
       else setIsLoadingMore(true);
       try {
+        const activeSearch = searchQuery.trim();
         const res = await productsApi.getAll({
           skip,
           limit: PAGE_SIZE,
-          category: categoryParam && categoryParam !== 'all' ? categoryParam : undefined,
-          search: searchQuery.trim() || undefined,
+          // When searching, query full catalog so results don't disappear under a category filter.
+          category: activeSearch ? undefined : (categoryParam && categoryParam !== 'all' ? categoryParam : undefined),
+          search: activeSearch || undefined,
           sort: sortBy,
         });
         if (res.success) {
@@ -93,25 +95,24 @@ const ProductListingPage = ({ useMainLayout = false }: ProductListingPageProps) 
   }, [fetchPage]);
 
   useEffect(() => {
-    if (searchParam !== searchQuery) {
-      setSearchQuery(searchParam || '');
-    }
+    const fromUrl = searchParam;
+    setSearchQuery((q) => (q.trim() === fromUrl ? q : fromUrl));
   }, [searchParam]);
 
   useEffect(() => {
     const trimmed = searchQuery.trim();
-    if (searchParam !== trimmed) {
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          if (trimmed) next.set('search', trimmed);
-          else next.delete('search');
-          return next;
-        },
-        { replace: true }
-      );
-    }
-  }, [searchQuery]);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        const cur = next.get('search') || '';
+        if (trimmed === cur) return prev;
+        if (trimmed) next.set('search', trimmed);
+        else next.delete('search');
+        return next;
+      },
+      { replace: true }
+    );
+  }, [searchQuery, setSearchParams]);
 
   useEffect(() => {
     const sentinel = loadMoreRef.current;
@@ -131,7 +132,29 @@ const ProductListingPage = ({ useMainLayout = false }: ProductListingPageProps) 
     return () => observer.disconnect();
   }, [hasMore, isLoadingMore, isLoading, total, fetchPage]);
 
-  const filteredAndSortedProducts = useMemo(() => products, [products]);
+  const filteredAndSortedProducts = useMemo(() => {
+    const q = searchParam.trim().toLowerCase();
+    if (!q) return products;
+    const words = q.split(/\s+/).filter(Boolean);
+    const scoreProduct = (product: Product) => {
+      const name = (product.name ?? '').toLowerCase();
+      const category = (product.category ?? '').toLowerCase();
+      const desc = (product.shortDescription ?? '').replace(/<[^>]*>/g, ' ').toLowerCase();
+      let score = 0;
+      for (const w of words) {
+        if (name.startsWith(w)) score += 10;
+        else if (name.includes(w)) score += 7;
+        if (category.includes(w)) score += 3;
+        if (desc.includes(w)) score += 2;
+      }
+      return score;
+    };
+    return [...products].sort((a, b) => {
+      const diff = scoreProduct(b) - scoreProduct(a);
+      if (diff !== 0) return diff;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+  }, [products, searchParam]);
 
   const sortLabels: Record<SortOption, string> = {
     newest: 'Newest First',
@@ -186,6 +209,7 @@ const ProductListingPage = ({ useMainLayout = false }: ProductListingPageProps) 
         description={listingDescription}
         keywords={listingKeywords}
         path={listPath}
+        noIndex={hasSearch}
       />
       <div className="container mx-auto px-2 sm:px-4 pb-8 sm:pb-12">
         {/* Breadcrumb — touch-friendly links on mobile */}
