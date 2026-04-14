@@ -651,6 +651,23 @@ export const paymentsApi = {
       }
     );
   },
+  reconcileRazorpayOrder: async (data: {
+    razorpay_order_id: string;
+    products: Array<{ productId: string; qty: number }>;
+    address: Address;
+    deliveryAgreement: boolean;
+    deliveryMobileNumber: string;
+    couponCode?: string;
+  }) => {
+    return fetchWithAuth<{ orderId: string }>(
+      '/api/payments/razorpay/reconcile',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+        keepalive: true,
+      }
+    );
+  },
   reportFailure: async (data: { reason?: string }) => {
     return fetchWithAuth('/api/payments/razorpay/failure', {
       method: 'POST',

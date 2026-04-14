@@ -24,6 +24,7 @@ declare global {
 }
 
 const ADDRESS_REQUIRED_MSG = 'Please add or select a delivery address to continue.';
+const PENDING_CHECKOUT_KEY = 'pendingCheckoutPayment';
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
@@ -123,8 +124,9 @@ const CheckoutPage = () => {
   }, []);
 
   const clearPaymentHistoryGuard = useCallback(() => {
+    const hadGuard = Boolean(popStateHandlerRef.current);
     detachPaymentPopstateGuard();
-    window.history.back();
+    if (hadGuard) window.history.back();
   }, [detachPaymentPopstateGuard]);
 
   const releaseCheckoutPayment = useCallback(() => {
@@ -231,6 +233,93 @@ const CheckoutPage = () => {
     hasProfileMobile && useAccountMobile ? normalizedProfileMobile : normalizedOtherMobile;
   const deliveryContactOk = deliveryAgreement && isValidIndianMobile10(deliveryContactDigits);
 
+  useEffect(() => {
+    if (!buyNowHydrated || !user || paymentInProgressRef.current) return;
+    const raw = sessionStorage.getItem(PENDING_CHECKOUT_KEY);
+    if (!raw) return;
+    let pending: {
+      createdAt: number;
+      razorpayOrderId: string;
+      payload: {
+        products: Array<{ productId: string; qty: number }>;
+        address: Address;
+        deliveryAgreement: boolean;
+        deliveryMobileNumber: string;
+        couponCode?: string;
+      };
+      summary: {
+        subtotal: number;
+        gstAmount: number;
+        deliveryCharge: number;
+        couponDiscount: number;
+        total: number;
+      };
+      hadContactUsOrder: boolean;
+      wasBuyNow: boolean;
+    } | null = null;
+    try {
+      pending = JSON.parse(raw);
+    } catch {
+      sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
+      return;
+    }
+    if (!pending?.razorpayOrderId || !pending?.payload) {
+      sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
+      return;
+    }
+    if (Date.now() - Number(pending.createdAt || 0) > 1000 * 60 * 90) {
+      sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
+      return;
+    }
+
+    let cancelled = false;
+    const recover = async () => {
+      paymentInProgressRef.current = true;
+      setIsPlacingOrder(true);
+      setPaymentUiLocked(true);
+      setIsConfirmingOrder(true);
+      try {
+        const verify = await paymentsApi.reconcileRazorpayOrder({
+          razorpay_order_id: pending!.razorpayOrderId,
+          ...pending!.payload,
+        });
+        if (cancelled) return;
+        if (verify?.success && verify.data) {
+          const orderId = (verify.data as { orderId?: string }).orderId;
+          sessionStorage.setItem(
+            'lastOrderSummary',
+            JSON.stringify({
+              ...pending!.summary,
+              orderId: orderId ? String(orderId) : undefined,
+            })
+          );
+          if (pending!.hadContactUsOrder) sessionStorage.setItem('orderForContactUs', '1');
+          if (pending!.wasBuyNow) {
+            sessionStorage.removeItem('buyNowItem');
+            setBuyNowItem(null);
+          } else {
+            clearCart();
+          }
+          sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
+          paymentInProgressRef.current = false;
+          detachPaymentPopstateGuard();
+          navigate('/order-success', { replace: true, state: verify.data });
+          return;
+        }
+      } catch {
+        // Not captured yet or failed — drop stale pending record so user can retry fresh.
+        sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
+      }
+      if (cancelled) return;
+      releaseCheckoutPayment();
+    };
+    void recover();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [buyNowHydrated, user, clearCart, detachPaymentPopstateGuard, navigate, releaseCheckoutPayment]);
+
   const handlePlaceOrder = async () => {
     if (paymentInProgressRef.current) return;
     if (!user) {
@@ -289,6 +378,24 @@ const CheckoutPage = () => {
       }
 
       const totalPayableLabel = formatPrice(res.data.totalAmount ?? payableTotal);
+      const hadContactUsOrder = checkoutItems.some((item) => isContactUs3dProduct(item.product));
+      sessionStorage.setItem(
+        PENDING_CHECKOUT_KEY,
+        JSON.stringify({
+          createdAt: Date.now(),
+          razorpayOrderId: res.data.orderId,
+          payload,
+          summary: {
+            subtotal: breakdown.subtotal,
+            gstAmount: breakdown.gstAmount,
+            deliveryCharge: shippingCharge,
+            couponDiscount: appliedCoupon?.discountAmount ?? 0,
+            total: res.data.totalAmount ?? payableTotal,
+          },
+          hadContactUsOrder,
+          wasBuyNow: items.length === 0,
+        })
+      );
       window.history.pushState({ checkoutPaymentGuard: 1 }, '');
       const onPopState = () => {
         if (!paymentInProgressRef.current) return;
@@ -345,6 +452,7 @@ const CheckoutPage = () => {
             return;
           }
           if (verify?.success && verify.data) {
+            sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
             const orderId = (verify.data as { orderId?: string }).orderId;
             sessionStorage.setItem(
               'lastOrderSummary',
@@ -357,7 +465,6 @@ const CheckoutPage = () => {
                 orderId: orderId ? String(orderId) : undefined,
               })
             );
-            const hadContactUsOrder = checkoutItems.some((item) => isContactUs3dProduct(item.product));
             if (hadContactUsOrder) sessionStorage.setItem('orderForContactUs', '1');
             if (items.length === 0) {
               sessionStorage.removeItem('buyNowItem');
@@ -379,6 +486,7 @@ const CheckoutPage = () => {
         },
         modal: {
           ondismiss: async () => {
+            sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
             await paymentsApi.reportFailure({ reason: 'Checkout dismissed' });
             releaseCheckoutPayment();
           },
@@ -387,6 +495,7 @@ const CheckoutPage = () => {
 
       const razorpay = new window.Razorpay(options);
       razorpay.on('payment.failed', async (resp: { error?: { description?: string } }) => {
+        sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
         await paymentsApi.reportFailure({ reason: resp?.error?.description || 'Payment failed' });
         releaseCheckoutPayment();
       });
