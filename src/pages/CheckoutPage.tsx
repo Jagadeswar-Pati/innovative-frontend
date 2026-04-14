@@ -37,6 +37,7 @@ const CheckoutPage = () => {
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [buyNowItem, setBuyNowItem] = useState<{ product: Product; quantity: number } | null>(null);
   const [deliveryAgreement, setDeliveryAgreement] = useState(false);
+  const [waitForCompletionAgreement, setWaitForCompletionAgreement] = useState(false);
   const [useAccountMobile, setUseAccountMobile] = useState(true);
   const [otherDeliveryMobile, setOtherDeliveryMobile] = useState('');
   const [stateCharges, setStateCharges] = useState<{ defaultShippingCharge: number } | null>(null);
@@ -335,6 +336,14 @@ const CheckoutPage = () => {
       toast({
         title: 'Confirmation required',
         description: 'Confirm your delivery mobile and the notice about incorrect numbers.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!waitForCompletionAgreement) {
+      toast({
+        title: 'Confirmation required',
+        description: 'Please confirm that you will wait until automatic redirect to the order page after payment.',
         variant: 'destructive',
       });
       return;
@@ -783,13 +792,32 @@ const CheckoutPage = () => {
                 {ADDRESS_REQUIRED_MSG}
               </p>
             )}
+            <div className="mb-3 rounded-lg border border-amber-300/70 bg-amber-50/70 dark:bg-amber-950/30 dark:border-amber-800 px-3 py-2.5">
+              <p className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-2">
+                Mandatory payment completion confirmation
+              </p>
+              <p className="text-xs sm:text-sm text-amber-900 dark:text-amber-100 leading-relaxed">
+                I WILL WAIT TILL COMPLETE PAYMENT PROCESS UNTIL IT AUTOMATIC BRING TO ORDER PAGE OF WEBSITE OTHER WISE PAYMENT GET FAILED MAY NOT BE REFUNDABLE.
+              </p>
+              <div className="mt-2 flex items-start gap-2">
+                <Checkbox
+                  id="wait-for-completion-agreement"
+                  checked={waitForCompletionAgreement}
+                  onCheckedChange={(v) => setWaitForCompletionAgreement(v === true)}
+                  className="mt-0.5"
+                />
+                <Label htmlFor="wait-for-completion-agreement" className="text-xs sm:text-sm cursor-pointer leading-snug">
+                  I understand and I will wait until the order-success page opens automatically.
+                </Label>
+              </div>
+            </div>
             <Button
               className="w-full"
               size="lg"
               onClick={handlePlaceOrder}
-              disabled={isPlacingOrder || !selectedAddress || !deliveryContactOk}
+              disabled={isPlacingOrder || !selectedAddress || !deliveryContactOk || !waitForCompletionAgreement}
               aria-busy={isPlacingOrder}
-              aria-disabled={!selectedAddress || !deliveryContactOk}
+              aria-disabled={!selectedAddress || !deliveryContactOk || !waitForCompletionAgreement}
             >
               {isPlacingOrder ? 'Processing...' : 'Place Order'}
             </Button>
